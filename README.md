@@ -35,9 +35,13 @@ data/data 45k LBA, not yet supported).
 - **Boot sector extraction**: `cdiextractor` can pull the real IP.BIN from
   outside the ISO9660 filesystem, which Iso7z cannot do.
 
-- **Fast rebuilds**: `cdibuilder` builds CDI images significantly faster than
-  mkdcdisc (which is slow due to its toolchain layer). Useful when you need
-  dozens of rebuild-and-test cycles during translation or modding work.
+- **Fast rebuilds**: `cdibuilder` skips ECC generation (emulators and ODEs
+  don't need it), so builds are near-instant beyond the mkisofs call. Compared
+  to mkdcdisc (which computes ECC and has a complex dependency chain that makes
+  it painful to compile, especially on Windows), `cdibuilder` is a single .cpp
+  file — trivial to modify and rebuild. Ideal for drop-in replacement in
+  Windows automation pipelines (e.g. upgrading Lazyboot's Python-based mkcdi
+  step for broader compatibility and speed).
 
 - **Lightweight / legacy environments**: both tools compile with g++ on any
   system with a C++17 compiler. Windows binaries can target WinXP, making them
