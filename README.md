@@ -22,6 +22,21 @@ data/data 45k LBA, not yet supported).
 | `cdiextractor` | Extract files, boot sector, and CRC32 scan lists from CDI images |
 | `cdibuilder` | Build CDI images from directories (audio/data mode) |
 
+## Usage Cases
+
+- **AI agents / automated pipelines**: `cdiextractor` extracts files from most
+  CDI images without needing Windows tools (Wine + Iso7z + 7z is more reliable
+  for some images but cannot extract IP.BIN). Generates a Dreambeam-format CRC32
+  diff that can be matched against the Dreambeam database for game
+  identification — consuming fewer tokens than raw file analysis.
+
+- **Boot sector extraction**: `cdiextractor` can pull the real IP.BIN from
+  outside the ISO9660 filesystem, which Iso7z cannot do.
+
+- **Fast rebuilds**: `cdibuilder` builds CDI images significantly faster than
+  mkdcdisc (which is slow due to its toolchain layer). Useful when you need
+  dozens of rebuild-and-test cycles during translation or modding work.
+
 ## Quick Start (Windows)
 
 Drop a `.cdi` onto `extract.cmd` — extracts all files + bootsector + Dreambeam scan list into `data/`.
