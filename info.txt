@@ -1,0 +1,214 @@
+CDI Extractor - Technical Documentation
+======================================
+
+CDI Extractor unpacks individual files from DiscJuggler (.cdi) images.
+It parses the CDI container, extracts the data track as raw ISO sectors,
+then walks the ISO9660 filesystem to list and extract files.
+
+Source: cdiextractor.cpp
+Compiles: Linux (g++) and Windows (MinGW-w64 cross-compiler)
+
+
+1. CDI FILE FORMAT
+------------------
+
+A DiscJuggler CDI image has this layout on disk:
+
+  [track data, sequentially from byte 0]
+  [session & track headers, near end of file]
+  [8-byte footer at EOF: version (4 bytes LE) + header_offset (4 bytes LE)]
+
+Track data starts at byte 0; the first track's raw sectors begin there.
+Each subsequent track's data follows immediately after the previous one.
+
+The header_offset in the footer points to the session/track descriptor
+block. Interpretation depends on the CDI version:
+
+  Version      Magic       Header position
+  ───────      ─────       ───────────────
+  CDI v2.0     0x80000004  header_offset (absolute file offset)
+  CDI v3.0     0x80000005  header_offset
+  CDI v3.5     0x80000006  file_length - header_offset
+
+Within the header block, the structure is:
+  - 2 bytes: number of sessions
+  - For each session:
+      - 2 bytes: number of tracks in this session
+      - For each track: track descriptor (variable-length struct)
+      - Session footer: 4 + 8 [+ 1 for v3/v3.5] bytes
+
+Track descriptor key fields (read via cdi_read_track):
+  - 10-byte start mark: 00 00 01 00 00 00 FF FF FF FF (appears twice)
+  - pregap_length   (int32 LE) - sectors of pregap before track data
+  - length           (int32 LE) - sectors of actual data (post-pregap)
+  - mode             (uint32 LE) - 0=Audio, 1=Mode1, 2=Mode2
+  - start_lba        (int32 LE) - disc LBA where track begins
+  - total_length     (int32 LE) - total sectors including pregap
+  - sector_size_value (uint32 LE) - 0=2048, 1=2336, 2=2352 bytes/sector
+
+Data for track N is at file offset:
+  sum(track[i].total_length * track[i].sector_size for i < N)
+
+
+2. SECTOR CONVERSION
+--------------------
+
+Data tracks store raw CD sectors. To get ISO9660-compatible 2048-byte
+sectors, we strip headers:
+
+  Mode  Sector size   Header stripped   Result     Notes
+  ────  ───────────   ───────────────   ──────     ─────
+  Mode1 2352          16 bytes          2048       sync(12)+header(4), skip ECC tail
+  Mode1 2048          0 bytes           2048       already ISO
+  Mode2 2352          24 bytes          2048       sync(12)+header(4)+subheader(8), skip tail
+  Mode2 2336          8 bytes           2048       subheader(8), skip EDC/ECC tail
+  Mode2 2048          0 bytes           2048       already ISO
+
+These header lengths match the conversion logic in the original cdirip
+tool (cdi.c / cdirip.c by DeXT/Lawrence Williams).
+
+
+3. ISO9660 FILESYSTEM PARSING
+------------------------------
+
+The converted 2048-byte sectors contain an ISO9660 filesystem. For
+Dreamcast discs, sectors 0-15 hold the IP.BIN bootstrap; sector 16
+holds the Primary Volume Descriptor (PVD).
+
+PVD (sector 16, offset 0):
+  Byte   0: descriptor type = 0x01
+  Bytes  1-5: magic "CD001"
+  Byte   6: version = 0x01
+  Bytes 80-87: volume space size (4 bytes LE + 4 bytes BE)
+  Byte 156: root directory record (34 bytes)
+    - Bytes 2-5: root extent (disc LBA, LE uint32)
+    - Bytes 10-13: root directory size in bytes (LE uint32)
+
+Directory records are variable-length:
+  Byte    0: record length (0 = end of directory, <34 = invalid)
+  Bytes  2-5: extent (disc LBA where data starts, LE uint32)
+  Bytes 10-13: data length in bytes (LE uint32)
+  Bytes 18-24: recording date/time (7 bytes: year-1900, month, day,
+               hour, minute, second, GMT offset in 15-min units)
+  Byte   25: file flags (bit 1 = directory)
+  Byte   32: file identifier length
+  Byte   33+: file identifier (name), ISO9660 uses ;1 version suffix
+
+Special entries skipped by the parser:
+  - id_len=1, name=0x00: "." (self)
+  - id_len=1, name=0x01: ".." (parent)
+
+The parser also skips Rock Ridge extension data (NM, PX, TF, RR, etc.)
+embedded in the System Use area of directory records by only reading
+the ISO9660 core fields.
+
+
+4. LBA TRANSLATION
+------------------
+
+ISO9660 extents are absolute disc LBAs. The data track starts at
+track.start_lba. The conversion from ISO extent to our local sector
+index is:
+
+  local_sector = iso_extent - track.start_lba
+
+This formula works regardless of pregap because the pregap offset
+cancels out when the data is actually stored post-pregap in the CDI
+file. (Empirically verified on Dreamcast CDI images.)
+
+
+5. IP.BIN / BOOT SECTOR (-b flag)
+----------------------------------
+
+The Dreamcast boot sector (IP.BIN) occupies the first 16 sectors
+(32768 bytes) of the data track, OUTSIDE the ISO9660 filesystem.
+The ISO9660 PVD sits at sector 16.
+
+IP.BIN structure (sector 0, 2048 bytes):
+  Offset   Size   Field
+  ──────   ────   ─────
+  0x000    16     Hardware ID ("SEGA SEGAKATANA ")
+  0x010    16     Maker ID
+  0x020    16     Device info
+  0x030    16     Area symbols + product number
+  0x040    16     Product number + version
+  0x050    16     Release date
+  0x060    16     Boot filename (e.g., "1ST_READ.BIN    ")
+  0x070    16     Boot loader / KOS info
+  0x080    128    Title (varies by SDK version)
+  0x100    512    Reserved
+  0x300    1280   Boot code (first part)
+
+The -b flag extracts all 16 sectors as "bootsector.bin". This is the
+REAL boot sector — different from any IP.BIN file that may exist inside
+the filesystem (placed there by burning tools or lazy developers).
+
+
+6. KNOWN LIMITATIONS
+--------------------
+
+- Only the LAST data track is extracted. Multi-data-track images with
+  filesystems spread across sessions are not handled.
+
+- Audio/CDDA tracks are skipped. No WAV/RAW extraction is performed.
+  (Use cdirip or GDIExplorer for audio extraction.)
+
+- Rock Ridge extensions (POSIX file attributes, long filenames) are
+  recognized as valid directory record padding but their data is
+  ignored. File names come from the ISO9660 core fields only.
+
+- File dates use the ISO9660 "recording date" field. The timezone
+  offset is ignored; timestamps are applied as local time via utime().
+
+- The ISO9660 parser expects the PVD at sector 16 (Dreamcast standard)
+  with fallback to sector 0. Non-Dreamcast images with the PVD at other
+  sectors may fail.
+
+- Maximum track length: 1,000,000 sectors (~2 GB). This is a safety
+  limit, not a format constraint.
+
+- Empty directories are not created if they contain no entries other
+  than "." and ".." (common on Dreamcast discs).
+
+- The CDI image footer must contain a valid v2/v3/v3.5 version magic.
+  DiscJuggler v4 images use a different structure and are not supported
+  (though cdirip source mentions partial DJ4 support via the
+  0x80000000 extended data marker, which this tool does handle).
+
+
+7. BUILDING
+-----------
+
+  Linux:
+    g++ -std=c++17 -O2 -Wall -o cdiextractor cdiextractor.cpp
+
+  Windows (cross-compile):
+    x86_64-w64-mingw32-g++ -std=c++17 -O2 -Wall -static -o cdiextractor.exe cdiextractor.cpp
+
+  No external dependencies beyond the C++ standard library.
+
+
+8. USAGE REFERENCE
+------------------
+
+  cdiextractor game.cdi                  # drag-drop: extract all + bootsector -> data/
+  cdiextractor game.cdi -l               # list files only
+  cdiextractor game.cdi -l -b            # list files + bootsector info
+  cdiextractor game.cdi -x               # extract files -> current dir
+  cdiextractor game.cdi -x -b            # extract files + bootsector
+  cdiextractor game.cdi -x -b -C out/    # extract to out/
+
+
+9. REFERENCES
+-------------
+
+  CDIrip 0.6.4 by DeXT/Lawrence Williams
+    - Original CDI format reverse-engineering
+    - https://sourceforge.net/projects/cdirip/
+
+  ISO 9660:1988
+    - Volume and file structure for CD-ROM
+
+  Dreamcast IP.BIN specification
+    - Sega Katana SDK documentation
+    - KOS (KallistiOS) IP.BIN template
