@@ -24,11 +24,13 @@ data/data 45k LBA, not yet supported).
 
 ## Usage Cases
 
-- **AI agents / automated pipelines**: `cdiextractor` extracts files from most
-  CDI images without needing Windows tools (Wine + Iso7z + 7z is more reliable
-  for some images but cannot extract IP.BIN). Generates a Dreambeam-format CRC32
-  diff that can be matched against the Dreambeam database for game
-  identification — consuming fewer tokens than raw file analysis.
+- **AI agents / automated pipelines**: `cdiextractor` unpacks any CDI without
+  Windows-only tools (no Wine, no closed-source Iso7z plugin, no 7z). Produces
+  a Dreambeam-format CRC32 list that can be diffed directly against the
+  Dreambeam database — one hash comparison identifies the game, no token-heavy
+  file-by-file analysis needed. Simpler than grepping the database blindly
+  because you can produce the same hash format from any image and get an
+  exact match (or a deliberate mismatch).
 
 - **Boot sector extraction**: `cdiextractor` can pull the real IP.BIN from
   outside the ISO9660 filesystem, which Iso7z cannot do.
@@ -36,6 +38,11 @@ data/data 45k LBA, not yet supported).
 - **Fast rebuilds**: `cdibuilder` builds CDI images significantly faster than
   mkdcdisc (which is slow due to its toolchain layer). Useful when you need
   dozens of rebuild-and-test cycles during translation or modding work.
+
+- **Lightweight / legacy environments**: both tools compile with g++ on any
+  system with a C++17 compiler. Windows binaries can target WinXP, making them
+  usable in minimal VirtualBox appliances where installing Python or Wine is
+  impractical. The only external dependency is mkisofs/genisoimage.
 
 ## Quick Start (Windows)
 
