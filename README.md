@@ -44,11 +44,12 @@ data/data 45k LBA, not yet supported).
   Windows automation pipelines (e.g. upgrading Lazyboot's Python-based mkcdi
   step for broader compatibility and speed).
 
-- **Dreambeam replacement**: if the original Dreambeam (a Delphi 8 app by
-  Leonis, the format's creator) doesn't run on your system, `cdiextractor -s`
-  produces the same `_dbscan.txt` format. Drop that file into your database
-  and use `dreamdiff` (included) to compare it against existing entries —
-  preserving the Dreambeam ecosystem without requiring the original GUI.
+- **Dreambeam replacement**: if the original Dreambeam doesn't run on your
+  system (the older version have compatibility problems and modern Dreambeam
+  was still in beta), `cdiextractor -s` produces the same `_dbscan.txt` format.
+  Drop that file into your database and use `dreamdiff` (included) to compare
+  it against existing entries — preserving the Dreambeam ecosystem without
+  requiring the original GUI.
 
 - **Lightweight / legacy environments**: both tools compile with g++ on any
   system with a C++17 compiler. Windows binaries can target WinXP, making them
