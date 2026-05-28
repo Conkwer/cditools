@@ -21,6 +21,7 @@ data/data 45k LBA, not yet supported).
 |------|---------|
 | `cdiextractor` | Extract files, boot sector, and CRC32 scan lists from CDI images |
 | `cdibuilder` | Build CDI images from directories (audio/data mode) |
+| `dreamdiff` | Compare Dreambeam database files and generate color-coded diff reports |
 
 ## Usage Cases
 
@@ -42,6 +43,12 @@ data/data 45k LBA, not yet supported).
   file — trivial to modify and rebuild. Ideal for drop-in replacement in
   Windows automation pipelines (e.g. upgrading Lazyboot's Python-based mkcdi
   step for broader compatibility and speed).
+
+- **Dreambeam replacement**: if the original Dreambeam (a legacy Delphi 8
+  Windows app) doesn't run on your system, `cdiextractor -s` produces the same
+  `_dbscan.txt` format. Drop that file into your database and use `dreamdiff`
+  (included) to compare it against existing entries — same workflow, no
+  Delphi/Wine needed.
 
 - **Lightweight / legacy environments**: both tools compile with g++ on any
   system with a C++17 compiler. Windows binaries can target WinXP, making them
