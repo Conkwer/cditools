@@ -1,13 +1,26 @@
 # cditools
 
-Fast command-line tools for unpacking and building DiscJuggler (.cdi) Dreamcast images.
+Fast C++ command-line tools for unpacking and building DiscJuggler (.cdi)
+Sega Dreamcast images. Designed for automated systems and AI agent toolchains
+in Linux (Debian 12 tested) and Windows (WinXP or newer, 64-bit) environments.
+
+The purpose is to replace the Python-dependent lazyboot toolchain, img4dc,
+mkcdi, mkdcdisc, and custom Python scripts with a single, fast, self-contained
+C++ tool that skips ECC generation. Builds are near-instant — only bottleneck
+is the external mkisofs call. `cdiextractor` also doubles as a Dreambeam
+replacement for CRC32 scanning and game identification.
+
+**This is a debugging/iteration tool, not a mastering tool.** It is useful for
+modders and translators of classic (2000–2002) Dreamcast games who need
+repetitive rebuild-and-test cycles. Less useful for postmarket games (most are
+data/data 45k LBA, not yet supported).
 
 ## Tools
 
 | Tool | Purpose |
 |------|---------|
 | `cdiextractor` | Extract files, boot sector, and CRC32 scan lists from CDI images |
-| `cdibuilder` | Build CDI images from directories (audio/data and data/data) |
+| `cdibuilder` | Build CDI images from directories (audio/data mode) |
 
 ## Quick Start (Windows)
 
