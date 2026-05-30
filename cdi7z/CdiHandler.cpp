@@ -412,6 +412,65 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
     COM_TRY_END
 }
 
+// ----------------------------------------------------------------
+// CSectorStream — strips CDI sector headers for nested ISO browsing
+// Given a Mode2/2336 track, exposes it as clean 2048-byte ISO sectors.
+// ----------------------------------------------------------------
+class CSectorStream:
+    public ISequentialInStream,
+    public CMyUnknownImp
+{
+    CMyComPtr<IInStream> _stream;
+    UInt64    _dataStart;
+    UInt64    _virtPos;
+    UInt64    _virtSize;
+    unsigned  _rawSectorSize;
+    unsigned  _stripOffset;
+
+public:
+    CSectorStream(IInStream *stream, const CTrack &t):
+        _stream(stream),
+        _dataStart(t.DataOffset),
+        _virtPos(0),
+        _virtSize((UInt64)t.DataSectors * 2048),
+        _rawSectorSize(t.SectorSize),
+        _stripOffset(t.SectorSize == 2336 ? 8 : 24) {}
+
+    Z7_IFACES_IMP_UNK_1(ISequentialInStream)
+    virtual ~CSectorStream() {}
+};
+
+Z7_COM7F_IMF(CSectorStream::Read(void *data, UInt32 size, UInt32 *processed))
+{
+    if (_virtPos >= _virtSize) {
+        *processed = 0;
+        return S_OK;
+    }
+    UInt64 remain = _virtSize - _virtPos;
+    if (size > remain) size = (UInt32)remain;
+
+    UInt32 written = 0;
+    Byte rawBuf[2352];
+    while (written < size) {
+        UInt64 sectorIndex = (_virtPos + written) / 2048;
+        unsigned offsetInSector = (unsigned)((_virtPos + written) % 2048);
+        unsigned toCopy = 2048 - offsetInSector;
+        if (toCopy > size - written) toCopy = size - written;
+
+        UInt64 rawPos = _dataStart + sectorIndex * _rawSectorSize;
+        RINOK(InStream_SeekSet(_stream, rawPos))
+        size_t readSz = _rawSectorSize;
+        RINOK(ReadStream(_stream, rawBuf, &readSz))
+        if (readSz != _rawSectorSize) break;
+
+        memcpy((Byte*)data + written, rawBuf + _stripOffset + offsetInSector, toCopy);
+        written += toCopy;
+    }
+    _virtPos += written;
+    *processed = written;
+    return S_OK;
+}
+
 Z7_COM7F_IMF(CHandler::GetStream(UInt32 index, ISequentialInStream **stream))
 {
     COM_TRY_BEGIN
@@ -419,10 +478,10 @@ Z7_COM7F_IMF(CHandler::GetStream(UInt32 index, ISequentialInStream **stream))
     if (index >= _tracks.Size()) return E_INVALIDARG;
     const CTrack &t = _tracks[index];
     if (t.Mode == 0) return S_FALSE;
+    if (t.DataSectors == 0) return S_FALSE;
 
-    UInt64 pos  = t.DataOffset;
-    UInt64 size = (UInt64)t.TotalSectors * t.SectorSize;
-    return CreateLimitedInStream(_stream, pos, size, stream);
+    *stream = new CSectorStream(_stream, t);
+    return S_OK;
     COM_TRY_END
 }
 

@@ -212,3 +212,60 @@ the filesystem (placed there by burning tools or lazy developers).
   Dreamcast IP.BIN specification
     - Sega Katana SDK documentation
     - KOS (KallistiOS) IP.BIN template
+
+
+10. 7-ZIP CDI FORMAT PLUGIN
+----------------------------
+
+The cdi7z/ directory contains an open-source 7-Zip format plugin for
+DiscJuggler .cdi images. It replaces the closed-source Iso7z plugin
+with added IP.BIN boot sector display.
+
+Features:
+  - Lists tracks with metadata (session, mode, sector size, LBA, pregap)
+  - Extracts tracks as stripped .iso (2048-byte sectors) or raw .wav
+  - Displays IP.BIN in archive Comment field
+  - Supports audio/data and data/data layouts
+  - Nested ISO9660 browsing via IInArchiveGetStream (CSectorStream)
+
+Files:
+  cdi7z/CdiHandler.h       - IInArchive + IInArchiveGetStream handler
+  cdi7z/CdiHandler.cpp     - CDI parser, track extractor, IP.BIN reader
+  cdi7z/CdiRegister.cpp    - Format registration (.cdi extension)
+  cdi7z/build.sh           - Build script (Linux + Windows cross-compile)
+  cdi7z/bin/CDI.so         - Standalone Linux format plugin (135 KB)
+  cdi7z/bin/7z.so          - Full 7z library with CDI built-in (5.6 MB)
+  cdi7z/bin/7z             - Linux loader binary
+
+Linux install:
+  Replace /opt/7zip-zstd/7z.so with cdi7z/bin/7z.so
+  Or use the loader: cd cdi7z/bin && LD_LIBRARY_PATH=. ./7z l file.cdi
+
+Build from source:
+  1. Get 7-Zip-zstd SDK: https://github.com/mcmilk/7-Zip-zstd
+  2. Copy cdi7z/*.cpp and cdi7z/*.h to 7-Zip-zstd/CPP/7zip/Archive/Cdi/
+  3. Run: ./build.sh (Linux) or ./build.sh win (Windows cross-compile)
+  4. For full 7z.so: use build/makefile.gcc and build/Arc_gcc.mak with
+     the 7-Zip-zstd Format7zF bundle
+
+Windows:
+  Windows users can use the existing Iso7z plugin (Iso7z.32.dll /
+  Iso7z.64.dll) which ships with 7-Zip-zstd. To build the CDI plugin
+  for Windows, cross-compile with:
+    x86_64-w64-mingw32-g++ -std=c++17 -O2 -shared -static
+      -DZ7_EXTRACT_ONLY -D_WIN32 -DUNICODE -D_UNICODE
+      -I<7z-sdk>/CPP/7zip -I<7z-sdk>/CPP -I<7z-sdk>/C
+      CdiHandler.cpp CdiRegister.cpp CdiExports.cpp
+      <7z-sdk>/CPP/Windows/PropVariant.cpp
+      <7z-sdk>/CPP/Common/MyString.cpp
+      <7z-sdk>/CPP/Common/StringConvert.cpp
+      <7z-sdk>/CPP/Common/IntToString.cpp
+      <7z-sdk>/C/7zCrc.c <7z-sdk>/C/Alloc.c
+      -loleaut32 -lole32 -luuid -o CDI.dll
+  Drop CDI.dll into the 7-Zip Formats/ directory.
+
+Two-step extraction:
+  7z x image.cdi        # extracts tracks as .iso / .wav
+  7z x track.iso         # extracts files from the ISO filesystem
+  This matches how Iso7z works and is the standard 7-zip workflow for
+  nested archives.
