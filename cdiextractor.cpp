@@ -36,15 +36,17 @@ static int set_mtime(const char *path, time_t t) {
 #define CDI_V35 0x80000006
 
 struct CDITrack {
-    uint32_t mode;
-    uint32_t sector_size;
-    uint32_t sector_size_value;
-    int64_t  length;
-    int64_t  pregap_length;
-    int64_t  total_length;
-    uint32_t start_lba;
-    uint8_t  filename_length;
-    int64_t  data_position;   // file offset where raw track data starts
+    uint32_t mode;             // 0=Audio, 1=Mode1, 2=Mode2 (track_mode at 38h+FIT)
+    uint32_t sector_size;      // bytes per raw sector (2048/2336/2352)
+    uint32_t sector_size_value; // read_mode at 60h+FIT (0=2048, 1=2336, 2=2352)
+    int64_t  length;           // post-pregap data sectors
+    int64_t  pregap_length;    // pregap sectors (index 0 length)
+    int64_t  total_length;     // pregap + data sectors
+    uint32_t start_lba;        // disc LBA of track
+    uint8_t  filename_length;  // length of CDI source filename
+    int64_t  data_position;    // file offset where raw track data starts
+    uint8_t  session_type;     // 0=Audio, 1=Mode1, 2=Mode2 (only on last track of session)
+    bool     is_last_track;    // true if last track in its session
 };
 
 struct CDIHeader {
@@ -165,58 +167,114 @@ static void cdi_parse_header(FILE *f, CDIHeader &hdr) {
         error_exit("Bad format: Could not find session header");
 }
 
+// Parse a CDI track descriptor.  Called after the session block's track-count
+// field has been read.  File position is within the session block; this function
+// finds the track block by locating the second occurrence of the 10-byte start
+// mark (which appears once spanning the session/track boundary and once inside
+// the Track/Disc Header at bytes 2-11).
+//
+// Track block layout (per No$cash CDI spec, E4h+F+I+T bytes):
+//   00h     30h+F   Track/Disc Header (common to all track/disc blocks)
+//   30h+F   02h     Number of Indices (usually 2)          I = Num * 4
+//   32h+F   (I)     Index lengths (index 0 = pregap)
+//   32h+FI  04h     Number of CD-Text blocks (usually 0)   T = variable
+//   36h+FI  (T)     CD-Text data
+//   36h+FIT 02h     Unknown (00,00)
+//   38h+FIT 01h     Track Mode (0=Audio, 1=Mode1, 2=Mode2)
+//   40h+FIT 04h     Session Number
+//   44h+FIT 04h     Track Number
+//   48h+FIT 04h     Track Start LBA
+//   4Ch+FIT 04h     Track Length (post-pregap sectors)
+//   60h+FIT 04h     read_mode (0=2048, 1=2336, 2=2352)
+//   69h+FIT 04h     Track Length (duplicate, total = pregap+data)
+//   D8h+FIT 01h     session_type (only last track of session)
+//   DEh+FIT 01h     Not Last Track flag
 static bool cdi_read_track(FILE *f, const CDIHeader &hdr, CDITrack &track) {
     uint8_t start_mark[10];
     uint8_t expected_mark[10] = { 0, 0, 0x01, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF };
     uint32_t temp;
 
+    // --- Locate track block start ---
+    // We are inside the session block (12 bytes remain before first track).
+    // Read the remaining session bytes + first bytes of track block to
+    // locate the first start mark (spans session/track boundary).
     temp = read32le(f);
     if (temp != 0)
-        fseeko(f, 8, SEEK_CUR);
+        fseeko(f, 8, SEEK_CUR);  // DJ v4 extended data
 
-    fread(start_mark, 1, 10, f);
+    fread(start_mark, 1, 10, f);        // session tail + track block start
     if (memcmp(expected_mark, start_mark, 10) != 0)
         return false;
 
-    fread(start_mark, 1, 10, f);
+    fread(start_mark, 1, 10, f);        // track block bytes 2-11
     if (memcmp(expected_mark, start_mark, 10) != 0)
         return false;
 
-    fseeko(f, 4, SEEK_CUR);
-    fread(&track.filename_length, 1, 1, f);
-    fseeko(f, track.filename_length, SEEK_CUR);
-    fseeko(f, 11, SEEK_CUR);
-    fseeko(f, 4, SEEK_CUR);
-    fseeko(f, 4, SEEK_CUR);
+    // We are now at track block byte 12 (offset 0Ch) — start of the
+    // Track/Disc Header's post-pattern fields.
 
-    temp = read32le(f);
-    if (temp == 0x80000000)
-        fseeko(f, 8, SEEK_CUR);
+    // --- Track/Disc Header (30h + F bytes) ---
+    fseeko(f, 3, SEEK_CUR);             // 0Ch: random/id (3 bytes)
+    fseeko(f, 1, SEEK_CUR);             // 0Fh: total tracks on disc
+    fread(&track.filename_length, 1, 1, f); // 10h: filename length (F)
+    uint8_t F = track.filename_length;
+    fseeko(f, F, SEEK_CUR);             // 11h: filename
+    fseeko(f, 11, SEEK_CUR);            // 11h+F: padding (11 bytes)
+    fseeko(f, 1, SEEK_CUR);             // 1Ch+F: unknown (02h)
+    fseeko(f, 10, SEEK_CUR);            // 1Dh+F: padding (10 bytes)
+    fseeko(f, 1, SEEK_CUR);             // 27h+F: unknown (80h)
+    fseeko(f, 4, SEEK_CUR);             // 28h+F: disc capacity (4 bytes)
+    fseeko(f, 2, SEEK_CUR);             // 2Ch+F: unknown (2 bytes)
+    fseeko(f, 2, SEEK_CUR);             // 2Eh+F: medium type (2 bytes)
 
-    fseeko(f, 2, SEEK_CUR);
+    // --- Variable-length section ---
+    // 30h+F: Number of Indices (2 bytes)
+    uint16_t num_indices;
+    fread(&num_indices, 2, 1, f);
 
-    uint32_t pregap_le, length_le, mode_le, start_lba_le, total_length_le, ssv_le;
-    fread(&pregap_le, 4, 1, f);
+    // 32h+F: Index lengths (num_indices * 4 bytes)
+    // Index 0 = pregap, Index 1 = data (for standard 2-index layout)
+    uint32_t idx_len[2] = { 0, 0 };
+    for (int i = 0; i < num_indices && i < 2; i++)
+        fread(&idx_len[i], 4, 1, f);
+    if (num_indices > 2)
+        fseeko(f, (num_indices - 2) * 4, SEEK_CUR);
+
+    // 32h+F+I: Number of CD-Text blocks (4 bytes)
+    uint32_t num_cdtext;
+    fread(&num_cdtext, 4, 1, f);
+    // 36h+F+I: CD-Text data (variable, skip — not used by Dreamcast images)
+    if (num_cdtext > 0) {
+        // CD-Text blocks: each is 18 bytes + variable-length strings.
+        // We don't parse them; skip conservatively (unlikely on DC images).
+        fseeko(f, num_cdtext * 18, SEEK_CUR);
+    }
+
+    // --- Fixed fields (offsets from 36h+F+I+T) ---
+    fseeko(f, 2, SEEK_CUR);             // +00: unknown (00,00)
+
+    // +02 (38h+FIT): Track Mode
+    fread(&track.mode, 1, 1, f);
+    if (track.mode > 2)
+        error_exit("Unsupported track mode");
+
+    fseeko(f, 7, SEEK_CUR);             // +03: unknown (7 bytes)
+    fseeko(f, 4, SEEK_CUR);             // +0A: Session Number
+    fseeko(f, 4, SEEK_CUR);             // +0E: Track Number
+
+    // +12 (48h+FIT): Track Start LBA
+    fread(&track.start_lba, 4, 1, f);
+
+    // +16 (4Ch+FIT): Track Length (post-pregap sectors)
+    uint32_t length_le;
     fread(&length_le, 4, 1, f);
-    track.pregap_length = (int64_t)(int32_t)pregap_le;
     track.length = (int64_t)(int32_t)length_le;
 
-    fseeko(f, 6, SEEK_CUR);
+    fseeko(f, 12, SEEK_CUR);            // +1A: unknown (12 bytes)
+    fseeko(f, 4, SEEK_CUR);             // +26: unknown flag
 
-    fread(&mode_le, 4, 1, f);
-    track.mode = mode_le;
-
-    fseeko(f, 12, SEEK_CUR);
-
-    fread(&start_lba_le, 4, 1, f);
-    fread(&total_length_le, 4, 1, f);
-    track.start_lba = start_lba_le;
-    track.total_length = (int64_t)(int32_t)total_length_le;
-
-    fseeko(f, 16, SEEK_CUR);
-
-    fread(&ssv_le, 4, 1, f);
-    track.sector_size_value = ssv_le;
+    // +2A (60h+FIT): read_mode / sector_size_value
+    fread(&track.sector_size_value, 4, 1, f);
 
     switch (track.sector_size_value) {
         case 0: track.sector_size = 2048; break;
@@ -225,16 +283,57 @@ static bool cdi_read_track(FILE *f, const CDIHeader &hdr, CDITrack &track) {
         default: error_exit("Unsupported sector size");
     }
 
-    if (track.mode > 2)
-        error_exit("Unsupported track mode");
+    fseeko(f, 4, SEEK_CUR);             // +2E: Control
+    fseeko(f, 1, SEEK_CUR);             // +32: unknown
 
-    fseeko(f, 29, SEEK_CUR);
-    if (hdr.version != CDI_V2) {
-        fseeko(f, 5, SEEK_CUR);
-        temp = read32le(f);
-        if (temp == 0xffffffff)
-            fseeko(f, 78, SEEK_CUR);
+    // +33 (69h+FIT): Track Length duplicate (total = pregap + data)
+    uint32_t total_le;
+    fread(&total_le, 4, 1, f);
+    track.total_length = (int64_t)(int32_t)total_le;
+
+    // Use index lengths for pregap/data when available (more reliable).
+    // Index 0 = pregap, index 1 = post-pregap data sectors.
+    if (num_indices >= 2) {
+        track.pregap_length = (int64_t)(int32_t)idx_len[0];
+        track.length        = (int64_t)(int32_t)idx_len[1];
+        // Recompute total from indices — more reliable than the duplicate
+        // at 69h+FIT which may hold a stale value in generated CDIs.
+        track.total_length  = track.pregap_length + track.length;
+    } else {
+        track.pregap_length = track.total_length - track.length;
     }
+
+    // Skip to session_type field (+37 through +A1)
+    fseeko(f, 4, SEEK_CUR);             // +37: unknown (4 bytes)
+    fseeko(f, 12, SEEK_CUR);            // +3B: ISRC code
+    fseeko(f, 4, SEEK_CUR);             // +47: ISRC valid flag
+    fseeko(f, 1, SEEK_CUR);             // +4B: unknown
+    fseeko(f, 8, SEEK_CUR);             // +4C: FF bytes
+    fseeko(f, 4, SEEK_CUR);             // +54: unknown (01)
+    fseeko(f, 4, SEEK_CUR);             // +58: unknown (80)
+    fseeko(f, 4, SEEK_CUR);             // +5C: unknown (02, audio channels?)
+    fseeko(f, 4, SEEK_CUR);             // +60: unknown (10, audio bits?)
+    fseeko(f, 4, SEEK_CUR);             // +64: unknown (44100, sample rate?)
+    fseeko(f, 42, SEEK_CUR);            // +68: unknown (2Ah bytes zeros)
+    fseeko(f, 4, SEEK_CUR);             // +92: unknown (FF FF FF FF)
+    fseeko(f, 12, SEEK_CUR);            // +96: unknown (12 bytes zeros)
+
+    // +A2 (D8h+FIT): session_type (only on last track of session)
+    // +A8 (DEh+FIT): Not Last Track flag
+    // These are 6 bytes apart; they're zeroed on non-last tracks.
+    // We read both unconditionally — they'll be 0 for non-last tracks.
+    uint32_t stemp;
+    fread(&stemp, 4, 1, f);             // session_type byte + 3 zeros (or all zeros)
+    track.session_type = (uint8_t)(stemp & 0xFF);
+    fseeko(f, 2, SEEK_CUR);             // skip to Not Last Track flag
+    uint8_t not_last;
+    fread(&not_last, 1, 1, f);
+    track.is_last_track = (not_last == 0);
+
+    // +A9: unknown (1 byte)
+    // +AA: address for last track (4 bytes)
+    // We don't need these — skip to end of track block
+    fseeko(f, 5, SEEK_CUR);
 
     return true;
 }
@@ -324,7 +423,9 @@ static void iso_collect_entries(const std::vector<uint8_t> &sectors, uint32_t nu
         while (offset < 2048 && bytes_read < size) {
             uint8_t rec_len = p[offset];
             if (rec_len == 0) {
-                bytes_read = size; // end of directory
+                // No more entries in this sector, but directory may
+                // continue in the next sector.  Skip to sector end.
+                bytes_read += 2048 - offset;
                 break;
             }
             if (rec_len < 34 || offset + rec_len > 2048) break;
@@ -881,6 +982,14 @@ int main(int argc, char **argv) {
     while (remaining_sessions > 0) {
         session_num++;
 
+        // After cdi_read_track returns, we're at the start of the next
+        // session block (byte 0 = unknown 00h).  Skip it to reach the
+        // track-count field at byte 1.  (Session 1 is already positioned
+        // at byte 1 because cdi_parse_header consumed byte 0 via the
+        // 2-byte session-count read.)
+        if (session_num > 1)
+            fseeko(f, 1, SEEK_CUR);
+
         uint16_t tracks;
         fread(&tracks, 2, 1, f);
         printf("\nSession %d: %d track(s)\n", session_num, tracks);
@@ -901,9 +1010,18 @@ int main(int argc, char **argv) {
                 default: type_str = "Unknown"; break;
             }
 
-            printf("  Track %d: %s/%u  Sectors: %lld  LBA: %u\n",
+            const char *sess_type_str = "";
+            if (track.is_last_track) {
+                switch (track.session_type) {
+                    case 0: sess_type_str = " [session: Audio/CD-DA]"; break;
+                    case 1: sess_type_str = " [session: Mode1/CD-ROM]"; break;
+                    case 2: sess_type_str = " [session: Mode2/CD-XA]"; break;
+                }
+            }
+
+            printf("  Track %d: %s/%u  Sectors: %lld  LBA: %u%s\n",
                    total_track_num, type_str, track.sector_size,
-                   (long long)track.length, track.start_lba);
+                   (long long)track.length, track.start_lba, sess_type_str);
 
             current_data_offset += track.total_length * track.sector_size;
 
@@ -911,9 +1029,9 @@ int main(int argc, char **argv) {
                 data_tracks.push_back(track);
         }
 
-        fseeko(f, 4, SEEK_CUR);
-        fseeko(f, 8, SEEK_CUR);
-        if (hdr.version != CDI_V2) fseeko(f, 1, SEEK_CUR);
+        // New cdi_read_track reads to end of each track block.
+        // No session footer — track blocks are followed directly by
+        // the next session block or the end-marker / disc info block.
 
         remaining_sessions--;
     }
