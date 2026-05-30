@@ -1,0 +1,23 @@
+PROG = 7z
+O = _o
+
+CXX = g++
+CC = gcc
+CXXFLAGS = -std=c++17 -O2 -fPIC \
+  -DZ7_EXTERNAL_CODECS -DNDEBUG -D_REENTRANT \
+  -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE \
+  -I../../.. -I../../../myWindows -I../../../../C
+CFLAGS = -O2 -fPIC -DNDEBUG -D_REENTRANT \
+  -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+LFLAGS = -shared -fPIC -lpthread -ldl
+
+include ../../LzmaDec_gcc.mak
+include Arc_gcc.mak
+
+SYS_OBJS = $O/MyWindows.o
+COMPRESS_OBJS_2 = $O/CodecExports.o
+AR_OBJS_2 = $O/ArchiveExports.o $O/DllExports2.o
+
+OBJS = $(ARC_OBJS) $(AR_OBJS_2) $(COMPRESS_OBJS_2) $(SYS_OBJS)
+
+include ../../7zip_gcc.mak
