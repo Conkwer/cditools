@@ -118,8 +118,8 @@ LD_LIBRARY_PATH=. ./7z x image.cdi -o./out  # extract to folder
 ```
 
 Features: IP.BIN display in Comment, ISO9660 dates/attributes, audio/data and
-data/data support. Linux x86_64 only — Windows users should use the Iso7z plugin
-shipped with 7-Zip-zstd.
+data/data support. Linux x86_64 only — Windows users can use the
+[Iso7z](https://www.tc4shell.com/en/7zip/iso7z/) plugin instead.
 
 ## Limitations
 

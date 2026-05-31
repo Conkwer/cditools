@@ -3,9 +3,9 @@
 Open-source 7-Zip format plugin for DiscJuggler `.cdi` disc images.
 Replacement for the closed-source Iso7z plugin, with IP.BIN boot sector display.
 
-**Platform:** Linux (compiled for x86_64). Windows users can use the
-existing Iso7z plugin (Iso7z.32.dll / Iso7z.64.dll) shipped with
-[7-Zip-zstd](https://github.com/mcmilk/7-Zip-zstd).
+**Platform:** Linux x86_64 only (compiled as part of 7-Zip-zstd).
+Windows users can use the existing [Iso7z](https://www.tc4shell.com/en/7zip/iso7z/)
+plugin instead.
 
 ## Features
 

@@ -249,8 +249,8 @@ Build from source:
      the 7-Zip-zstd Format7zF bundle
 
 Windows:
-  Windows users can use the existing Iso7z plugin (Iso7z.32.dll /
-  Iso7z.64.dll) which ships with 7-Zip-zstd. To build the CDI plugin
+  Windows users can use the existing Iso7z plugin from
+  https://www.tc4shell.com/en/7zip/iso7z/ instead. To build the CDI plugin
   for Windows, cross-compile with:
     x86_64-w64-mingw32-g++ -std=c++17 -O2 -shared -static
       -DZ7_EXTRACT_ONLY -D_WIN32 -DUNICODE -D_UNICODE
