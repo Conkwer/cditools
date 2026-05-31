@@ -22,6 +22,7 @@ data/data 45k LBA, not yet supported).
 | `cdiextractor` | Extract files, boot sector, and CRC32 scan lists from CDI images |
 | `cdibuilder` | Build CDI images from directories (audio/data mode) |
 | `dreamdiff` | Compare Dreambeam database files and generate color-coded diff reports |
+| `cdi7z` | Open-source 7-Zip CDI format plugin (Linux) — single-step extraction |
 
 ## Usage Cases
 
@@ -104,6 +105,21 @@ cdibuilder -d <input_dir> [options]
   -l <lba>      Session 2 LBA: 11702 for audio/data, 45000 for data/data
   -t <type>     Image type: audio or data (default: audio)
 ```
+
+## cdi7z — 7-Zip CDI plugin (Linux)
+
+Open-source format plugin replacing Iso7z. Single-step extraction: `7z x image.cdi`
+extracts files directly (no intermediate ISO step).
+
+```bash
+cd cdi7z/bin
+LD_LIBRARY_PATH=. ./7z l image.cdi          # list files
+LD_LIBRARY_PATH=. ./7z x image.cdi -o./out  # extract to folder
+```
+
+Features: IP.BIN display in Comment, ISO9660 dates/attributes, audio/data and
+data/data support. Linux x86_64 only — Windows users should use the Iso7z plugin
+shipped with 7-Zip-zstd.
 
 ## Limitations
 
