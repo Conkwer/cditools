@@ -123,7 +123,7 @@ data/data support. Linux x86_64 only — Windows users can use the
 
 Note: this is independent implementation based on No$cash CDI specs,
 cdirip 0.6.4 (DeXT/Lawrence Williams), and the 7-Zip format SDK. No code
-from Iso7z or third-party closed-source CDI tool is used.
+from Iso7z or third-party closed-source CDI tool is used in cdi7z.
 
 ## Limitations
 
