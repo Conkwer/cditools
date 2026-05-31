@@ -9,8 +9,12 @@ plugin instead.
 
 This plugin is an independent implementation based on the
 [No$cash CDI specification](https://problemkaputt.de/psx-spx.htm#cdromdiskimages)
-and the 7-Zip format SDK. It does not use any code from Dreambeam, Iso7z,
-or any other third-party CDI tools.
+and the 7-Zip format SDK. CDI parsing logic is derived from the same codebase
+as `cdiextractor`. Sector conversion follows the approach documented in
+cdirip 0.6.4 by DeXT/Lawrence Williams.
+
+No code from Dreambeam, Iso7z, or any other third-party closed-source CDI tool
+is used.
 
 ## Features
 
