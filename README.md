@@ -121,6 +121,9 @@ Features: IP.BIN display in Comment, ISO9660 dates/attributes, audio/data and
 data/data support. Linux x86_64 only — Windows users can use the
 [Iso7z](https://www.tc4shell.com/en/7zip/iso7z/) plugin instead.
 
+Independent implementation based on No$cash CDI specs and the 7-Zip format SDK.
+No code from Dreambeam, Iso7z, or any third-party CDI tool is used.
+
 ## Limitations
 
 - `cdibuilder` audio/data mode only (data/data coming)

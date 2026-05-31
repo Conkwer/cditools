@@ -7,6 +7,11 @@ Replacement for the closed-source Iso7z plugin, with IP.BIN boot sector display.
 Windows users can use the existing [Iso7z](https://www.tc4shell.com/en/7zip/iso7z/)
 plugin instead.
 
+This plugin is an independent implementation based on the
+[No$cash CDI specification](https://problemkaputt.de/psx-spx.htm#cdromdiskimages)
+and the 7-Zip format SDK. It does not use any code from Dreambeam, Iso7z,
+or any other third-party CDI tools.
+
 ## Features
 
 - Opens `.cdi` files (v2, v3, v3.5)
