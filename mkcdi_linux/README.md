@@ -108,7 +108,7 @@ LD_LIBRARY_PATH=. ./7z l /path/to/game.cdi
 LD_LIBRARY_PATH=. ./7z x /path/to/game.cdi -o./extracted
 ```
 
-The open-source `cdi7z` plugin is available at: https://github.com/Conkwer/cditools/tree/main/cdi7z
+cdi7z is included in this repo at `../cdi7z/`. It is also mirrored in the Dreamcast Knowledge Base at `deepdream/tools/cdi7z/`.
 
 ## Limitations
 
