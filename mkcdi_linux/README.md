@@ -99,10 +99,16 @@ gcc -O2 scramble.c -o scramble
 
 ## Verification
 
-Test the output with 7z:
+Standard 7z cannot read CDI files. Use the CDI-enabled 7z plugin from this repo:
+
 ```bash
-7z l game.cdi          # Should show "Type = CDI" with IP.BIN metadata
+# Using cdi7z (included in cditools repo)
+cd ../cdi7z/bin
+LD_LIBRARY_PATH=. ./7z l /path/to/game.cdi
+LD_LIBRARY_PATH=. ./7z x /path/to/game.cdi -o./extracted
 ```
+
+The open-source `cdi7z` plugin is available at: https://github.com/Conkwer/cditools/tree/main/cdi7z
 
 ## Limitations
 
