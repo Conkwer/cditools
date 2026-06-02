@@ -30,7 +30,7 @@ No Wine required. For Katana, WinCE, and KallistiOS binaries.
 | `fill` | ISO padder. Pads session 1 to target LBA. `fill file.iso 45000` |
 | `hack4` | Binary LBA patcher. Replaces GD-ROM LBA references for CD-R. |
 | `scramble` | BOOTROM-compatible binary scrambler. `-d` flag for descramble. |
-| `redump2cdi` | Redump CUE → DiscJuggler CDI converter. |
+| `redump2cdi` | Redump CUE → DiscJuggler CDI converter. x86-64 only (static binary, closed source). |
 | `binhack32` | IP.BIN patcher (legacy). |
 
 ### Python Scripts
@@ -118,9 +118,11 @@ cdi7z is included in this repo at `../cdi7z/`. It is also mirrored in the Dreamc
 
 ## Platform Notes
 
-- **This is a native Linux toolchain** — no Wine required
-- All binaries compiled on Debian 12 x86-64
+- **Native Linux toolchain** — no Wine required
+- Pre-compiled binaries for Debian 12 x86-64
 - Python scripts work on any platform with Python 3.8+
+- **ARM/Raspberry Pi**: recompile C++ tools from source (`g++ -std=c++17 -O2 *.cpp`). No closed-source dependencies — all tools have source available.
+- Unlike `make45k_linux`, mkcdi does NOT depend on redump2cdi (x86-64 only, closed source)
 
 ## Credits
 
