@@ -1,8 +1,0 @@
-#!/bin/bash
-
-echo "Removing test files ..."
-rm *.BIN  > /dev/null 2>&1
-rm ip.*  > /dev/null 2>&1
-echo ""
-echo "DONE!"
-read -p 'Press any key to continue...'
