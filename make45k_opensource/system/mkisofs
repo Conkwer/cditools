@@ -1,0 +1,11 @@
+#!/bin/bash
+# Wrapper: strip -duplicates-once (unsupported by genisoimage) and pass through
+args=()
+skip_next=false
+for arg in "$@"; do
+    if [ "$arg" = "-duplicates-once" ]; then
+        continue  # genisoimage doesn't support this, skip it
+    fi
+    args+=("$arg")
+done
+exec genisoimage "${args[@]}"

@@ -357,29 +357,23 @@ static void print_usage(const char *prog) {
     printf("  -V <name>     Volume name (default: dcgame)\n");
     printf("  -l <lba>      Session 2 LBA: 11702 for audio/data, 45000 for data/data\n");
     printf("  -t <type>     Image type: audio or data (default: audio)\n");
-    printf("  -M <s1> <s2>  Merge two raw .bin files (from iso2raw --mode2) into CDI\n");
     printf("  -h, --help    Show this help\n");
 }
 
 int main(int argc, char **argv) {
     const char *input_dir  = nullptr;
     const char *input_iso  = nullptr;
-    const char *merge_s1   = nullptr;
-    const char *merge_s2   = nullptr;
     std::string output_cdi;
     const char *volume     = "dcgame";
     int         lba        = 11702;
     bool        data_mode  = false;
-    bool        merge_mode = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-d") == 0 && i + 1 < argc)
             input_dir = argv[++i];
         else if (strcmp(argv[i], "-I") == 0 && i + 1 < argc)
             input_iso = argv[++i];
-        else if (strcmp(argv[i], "-M") == 0 && i + 2 < argc) {
-            merge_s1 = argv[++i]; merge_s2 = argv[++i]; merge_mode = true;
-        } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
             output_cdi = argv[++i];
         else if (strcmp(argv[i], "-V") == 0 && i + 1 < argc)
             volume = argv[++i];
@@ -395,76 +389,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (!input_dir && !input_iso && !merge_mode) { print_usage(argv[0]); return 1; }
+    if (!input_dir && !input_iso) { print_usage(argv[0]); return 1; }
 
     if (output_cdi.empty())
         output_cdi = std::string(volume) + ".cdi";
-
-    // ============================================
-    // MERGE MODE: raw bin files → multi-session CDI
-    // ============================================
-    if (merge_mode) {
-        FILE *f1 = fopen(merge_s1, "rb");
-        FILE *f2 = fopen(merge_s2, "rb");
-        if (!f1) error_exit("Cannot open session 1 bin");
-        if (!f2) error_exit("Cannot open session 2 bin");
-
-        fseeko(f1, 0, SEEK_END); int64_t sz1 = ftello(f1); fseeko(f1, 0, SEEK_SET);
-        fseeko(f2, 0, SEEK_END); int64_t sz2 = ftello(f2); fseeko(f2, 0, SEEK_SET);
-
-        int s1_sec = (int)(sz1 / 2352);
-        int s2_sec = (int)(sz2 / 2352);
-
-        if (sz1 % 2352 != 0 || sz2 % 2352 != 0)
-            error_exit("Raw bin size must be multiple of 2352 bytes (use iso2raw --mode2)");
-
-        printf("Merging: %s (%d sectors) + %s (%d sectors)\n", merge_s1, s1_sec, merge_s2, s2_sec);
-        printf("Mode: %s, LBA: %d\n", data_mode ? "data/data" : "audio/data", lba);
-
-        FILE *cdi = fopen(output_cdi.c_str(), "wb");
-        if (!cdi) error_exit("Cannot create output CDI");
-
-        // Placeholder for header (overwritten later)
-        uint8_t zero[8] = {0};
-        fwrite(zero, 1, 8, cdi);
-
-        // Write raw sectors: 8-byte subheader + 2352-byte raw data
-        std::vector<uint8_t> buf(2352);
-        auto write_raw = [&](FILE *src, int count) {
-            for (int i = 0; i < count; i++) {
-                fread(buf.data(), 1, 2352, src);
-                fwrite(zero, 1, 8, cdi);
-                fwrite(buf.data(), 1, 2352, cdi);
-            }
-        };
-        write_raw(f1, s1_sec); fclose(f1);
-        write_raw(f2, s2_sec); fclose(f2);
-
-        // Write CDI header
-        int PG = 0, hdr_sz;
-        uint8_t *hdr;
-        if (data_mode) {
-            hdr = build_header_data(PG, s1_sec, PG, s2_sec, lba, volume);
-            hdr_sz = 790;
-        } else {
-            hdr = build_header_audio(PG, s1_sec, PG, s2_sec, lba, volume);
-            hdr_sz = 665;
-        }
-        int64_t hp = ftello(cdi);
-        fwrite(hdr, 1, hdr_sz, cdi);
-        free(hdr);
-
-        // Footer
-        int64_t ep = ftello(cdi);
-        uint32_t off = (uint32_t)(ep - hp) + 8;
-        uint32_t sig = CDI_V35;
-        fwrite(&sig, 4, 1, cdi);
-        fwrite(&off, 4, 1, cdi);
-        fclose(cdi);
-
-        printf("\nDone: %s  (%.1f MB)\n", output_cdi.c_str(), (double)ep / (1024 * 1024));
-        return 0;
-    }
 
     // === Create ISO (if directory was given) ===
     std::string iso_path;
