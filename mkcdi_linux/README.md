@@ -1,7 +1,7 @@
 # mkcdi — Native Linux Dreamcast CDI Builder
 
-The first native Linux toolchain for building bootable Dreamcast CDI images.
-No Wine required. No proprietary dependencies.
+A native Linux toolchain for building bootable Dreamcast CDI images.
+No Wine required. For Katana, WinCE, and KallistiOS binaries.
 
 ## Quick Start
 
