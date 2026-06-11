@@ -7,6 +7,16 @@ import datetime
 from pathlib import Path
 
 def main():
+    # Architecture check — redump2cdi is x86-64 only
+    import platform
+    if platform.machine() not in ("x86_64", "AMD64"):
+        print("This script relies on redump2cdi which is x86-64 only.")
+        print("It will not work on your architecture (" + platform.machine() + ").")
+        print("Use mkcdi.sh instead.")
+        import time
+        time.sleep(20)
+        sys.exit(1)
+
     # Configuration variables
     lba = 45000
     binary = "0WINCEOS.BIN"
