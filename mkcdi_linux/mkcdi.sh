@@ -126,9 +126,9 @@ if $PATCH_BINARY && [ "$SDK" != "kos" ]; then
         fi
 
         # binhack: patch IP.BIN (region flags + reset trick)
-        # Prefer .py version (CLI-compatible) — the C binary is interactive-only
-        BHACK="$SYSTEM_DIR/binhack.py"
-        if [ ! -f "$BHACK" ]; then BHACK=$(tool binhack32); fi
+        # Prefer C binary (binhack32, CLI), fall back to Python version
+        BHACK=$(tool binhack32)
+        if [ ! -f "$BHACK" ]; then BHACK="$SYSTEM_DIR/binhack.py"; fi
         if [ -f "$BHACK" ] && [ -f "$DATA_DIR/IP.BIN" ]; then
             echo "    binhack $BINARY IP.BIN $LBA"
             case "$BHACK" in
