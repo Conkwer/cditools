@@ -12,8 +12,15 @@ ARCH=""
 case "$(uname -m)" in
     aarch64|arm64) ARCH="-arm64" ;;
 esac
-# Resolve tool path: tries $name$ARCH first, falls back to $name
-tool() { local t="$SYSTEM_DIR/$1$ARCH"; [ -x "$t" ] && echo "$t" || echo "$SYSTEM_DIR/$1"; }
+# Resolve tool path: tries $name$ARCH first, then $name.py, then bare $name
+tool() {
+    local t="$SYSTEM_DIR/$1$ARCH"
+    [ -x "$t" ] && echo "$t" && return
+    # if cross-arch, prefer .py fallback over foreign binary
+    if [ -n "$ARCH" ] && [ -f "$SYSTEM_DIR/$1.py" ]; then echo "$SYSTEM_DIR/$1.py"; return; fi
+    [ -x "$SYSTEM_DIR/$1" ] && echo "$SYSTEM_DIR/$1" && return
+    echo "$SYSTEM_DIR/$1.py"
+}
 
 # Defaults
 DATA_DIR="data"
@@ -119,9 +126,15 @@ if $PATCH_BINARY && [ "$SDK" != "kos" ]; then
         fi
 
         # binhack: patch IP.BIN (region flags + reset trick)
-        if [ -f "$(tool binhack32)" ] && [ -f "$DATA_DIR/IP.BIN" ]; then
+        # Prefer .py version (CLI-compatible) — the C binary is interactive-only
+        BHACK="$SYSTEM_DIR/binhack.py"
+        if [ ! -f "$BHACK" ]; then BHACK=$(tool binhack32); fi
+        if [ -f "$BHACK" ] && [ -f "$DATA_DIR/IP.BIN" ]; then
             echo "    binhack $BINARY IP.BIN $LBA"
-            $DRY_RUN || $(tool binhack32) "$DATA_DIR/$BINARY" "$DATA_DIR/IP.BIN" "$LBA" --output-dir "$DATA_DIR/" --quiet
+            case "$BHACK" in
+                *.py) $DRY_RUN || python3 "$BHACK" "$DATA_DIR/$BINARY" "$DATA_DIR/IP.BIN" "$LBA" --output-dir "$DATA_DIR/" --quiet ;;
+                *)    $DRY_RUN || "$BHACK" "$DATA_DIR/$BINARY" "$DATA_DIR/IP.BIN" "$LBA" --output-dir "$DATA_DIR/" --quiet ;;
+            esac
         fi
 
         # WinCE: convert binary format
