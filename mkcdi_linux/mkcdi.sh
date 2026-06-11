@@ -7,6 +7,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SYSTEM_DIR="$SCRIPT_DIR/system"
 
+# Architecture detection: use -arm64 binaries on aarch64
+ARCH=""
+case "$(uname -m)" in
+    aarch64|arm64) ARCH="-arm64" ;;
+esac
+# Resolve tool path: tries $name$ARCH first, falls back to $name
+tool() { local t="$SYSTEM_DIR/$1$ARCH"; [ -x "$t" ] && echo "$t" || echo "$SYSTEM_DIR/$1"; }
+
 # Defaults
 DATA_DIR="data"
 OUTPUT=""
@@ -69,7 +77,7 @@ if [ "$ELF_COUNT" -eq 1 ]; then
     if ! $DRY_RUN; then
         ELF_FILE=$(ls "$DATA_DIR"/*.elf | head -1)
         objcopy -O binary "$ELF_FILE" /tmp/mkcdi_unscrambled.bin
-        "$SYSTEM_DIR/scramble" /tmp/mkcdi_unscrambled.bin "$DATA_DIR/1ST_READ.BIN"
+        $(tool scramble) /tmp/mkcdi_unscrambled.bin "$DATA_DIR/1ST_READ.BIN"
         cp "$SCRIPT_DIR/precon/kos.bin" "$DATA_DIR/IP.BIN"
         rm -f "$ELF_FILE" /tmp/mkcdi_unscrambled.bin
         BINARY="1ST_READ.BIN"
@@ -105,15 +113,15 @@ if $PATCH_BINARY && [ "$SDK" != "kos" ]; then
         echo "==> Patching binary for LBA $LBA..."
 
         # hack4: patch LBA references in the binary
-        if [ -f "$SYSTEM_DIR/hack4" ]; then
+        if [ -f "$(tool hack4)" ]; then
             echo "    hack4 -0 -w $BINARY (45000 -> $LBA)"
-            $DRY_RUN || (cd "$DATA_DIR" && "$SYSTEM_DIR/hack4" -0 -w "$BINARY")
+            $DRY_RUN || (cd "$DATA_DIR" && $(tool hack4) -0 -w "$BINARY")
         fi
 
         # binhack: patch IP.BIN (region flags + reset trick)
-        if [ -f "$SYSTEM_DIR/binhack32" ] && [ -f "$DATA_DIR/IP.BIN" ]; then
+        if [ -f "$(tool binhack32)" ] && [ -f "$DATA_DIR/IP.BIN" ]; then
             echo "    binhack $BINARY IP.BIN $LBA"
-            $DRY_RUN || "$SYSTEM_DIR/binhack32" "$DATA_DIR/$BINARY" "$DATA_DIR/IP.BIN" "$LBA" --output-dir "$DATA_DIR/" --quiet
+            $DRY_RUN || $(tool binhack32) "$DATA_DIR/$BINARY" "$DATA_DIR/IP.BIN" "$LBA" --output-dir "$DATA_DIR/" --quiet
         fi
 
         # WinCE: convert binary format
@@ -148,7 +156,7 @@ echo "    Output: $OUTPUT"
 if $DRY_RUN; then
     echo "    [dry-run: skipping build]"
 else
-    "$SYSTEM_DIR/cdibuilder" -d "$DATA_DIR" -o "$OUTPUT" -l "$LBA" -t "$TYPE"
+    $(tool cdibuilder) -d "$DATA_DIR" -o "$OUTPUT" -l "$LBA" -t "$TYPE"
 fi
 
 echo ""
