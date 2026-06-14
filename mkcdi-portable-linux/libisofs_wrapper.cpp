@@ -59,29 +59,16 @@ bool create_dreamcast_iso(const std::string& data_dir,
         return false;
     }
 
-    // Add each entry in data_dir individually so we can exclude IP.BIN
+    // Add entire data directory recursively (matches mkdcdisc approach).
+    // IP.BIN will be in the filesystem — we remove it below.
     try {
-        std::vector<std::string> entries;
-        for (const auto& entry : fs::directory_iterator(data_dir)) {
-            entries.push_back(entry.path().string());
-        }
-        std::sort(entries.begin(), entries.end());
-
-        for (const auto& entry_path : entries) {
-            std::string name = fs::path(entry_path).filename().string();
-
-            // Skip IP.BIN (it goes into system area, not filesystem)
-            if (name == "IP.BIN") continue;
-
-            if (fs::is_directory(entry_path)) {
-                ret = iso_tree_add_dir_rec(img, root, entry_path.c_str());
-            } else {
-                ret = iso_tree_add_node(img, root, entry_path.c_str(), nullptr);
-            }
-            if (ret < 0 && !quiet) {
-                std::cerr << "libisofs: warning adding " << name
-                          << ": " << iso_error_to_msg(ret) << "\n";
-            }
+        ret = iso_tree_add_dir_rec(img, root, data_dir.c_str());
+        if (ret < 0) {
+            std::cerr << "libisofs: iso_tree_add_dir_rec failed: "
+                      << iso_error_to_msg(ret) << "\n";
+            iso_image_unref(img);
+            iso_finish();
+            return false;
         }
     } catch (const std::exception& e) {
         std::cerr << "libisofs: error scanning data dir: " << e.what() << "\n";
@@ -98,6 +85,21 @@ bool create_dreamcast_iso(const std::string& data_dir,
         iso_image_unref(img);
         iso_finish();
         return false;
+    }
+
+    // Remove IP.BIN from filesystem — it's in the system area, not a regular file
+    {
+        IsoDirIter* iter = NULL;
+        if (iso_dir_get_children(root, &iter) == 1) {
+            IsoNode* node;
+            while (iso_dir_iter_next(iter, &node) == 1 && node) {
+                if (!strcmp(iso_node_get_name(node), "IP.BIN")) {
+                    iso_node_remove(node);
+                    break;
+                }
+            }
+            iso_dir_iter_free(iter);
+        }
     }
 
     iso_write_opts_set_joliet(opts, 1);
