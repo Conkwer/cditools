@@ -31,7 +31,7 @@ namespace fs = std::filesystem;
 // ============================================================
 
 struct AppConfig {
-    std::string romname;
+    std::string volume_id;   // ISO 9660 Volume Identifier (formerly --romname)
     unsigned int lba = 11702;
     std::string binary = "1ST_READ.BIN";
     std::string data_dir = "./data";
@@ -44,26 +44,39 @@ struct AppConfig {
     bool logo = false;
     bool timestamp = false;
     bool kos = false;
-    std::string script_dir;  // directory containing the mkcdi binary
+    bool drag_drop = false;  // set when invoked with single positional arg
+    std::string script_dir;
 };
 
 static void print_usage(const char* prog) {
-    std::cout << "Usage: " << prog << " [options]\n\n"
-              << "Options:\n"
-              << "  --romname NAME    Game name / volume label (required)\n"
-              << "  --lba LBA         Session 2 LBA (default: 11702 for audio/data, 45000 for data/data)\n"
-              << "  --binary BIN      Boot binary filename (default: 1ST_READ.BIN)\n"
-              << "  --data-dir DIR    Directory with game data (default: ./data)\n"
-              << "  --output CDI      Output CDI filename (default: NAME.cdi)\n"
-              << "  --sort FILE       Sort file for mkisofs (optional)\n"
-              << "  --kos             KallistiOS mode: skip hack4/binhack, use kos.bin IP.BIN\n"
-              << "  --nohack          Skip hack4/binhack32/bincon (for pre-patched binaries)\n"
-              << "  --logo            Inject logo.mr into IP.BIN (Katana only; WinCE always gets wince.mr)\n"
-              << "  --dummy           Pad disc to optimal capacity (LBA 11702 only)\n"
-              << "  --fast            Fast mode: use cdibuilder (no ECC, for quick testing)\n"
-              << "  --timestamp       Append build timestamp to output filename\n"
-              << "  --quiet           Suppress info messages\n"
-              << "  -h, --help        Show this help\n";
+    std::cout
+        << "Usage: " << prog << " [options] [directory]\n"
+        << "       " << prog << " directory     (drag-and-drop quick build)\n\n"
+        << "Options:\n"
+        << "  -V, --volume-id NAME   ISO Volume Identifier (required)\n"
+        << "  -l, --lba LBA          Session 2 LBA (default: 11702)\n"
+        << "  -b, --binary BIN       Boot binary filename (default: 1ST_READ.BIN)\n"
+        << "  -d, --data-dir DIR     Directory with game data (default: ./data)\n"
+        << "  -o, --output CDI       Output CDI filename (default: NAME.cdi)\n"
+        << "  -s, --sort FILE        Sort file for ISO creation (optional)\n"
+        << "  -f, --fast             Fast mode: built-in cdibuilder (no ECC)\n"
+        << "  -t, --timestamp        Append build timestamp to filename\n"
+        << "  -q, --quiet            Suppress info messages\n"
+        << "  -h, --help             Show this help\n"
+        << "  --version              Show version info\n"
+        << "  --kos                  KallistiOS mode: skip hack4/binhack\n"
+        << "  --nohack               Skip hack4/binhack32/bincon (pre-patched)\n"
+        << "  --logo                 Inject logo.mr into IP.BIN (Katana)\n"
+        << "  --dummy                Pad disc to optimal capacity (LBA 11702)\n"
+        << "\n  --romname NAME         Deprecated alias for --volume-id\n"
+        << "\nDrag-and-drop: invoke with a single directory argument for a quick\n"
+        << "build with defaults (--volume-id from dirname, --fast, --lba 11702).\n";
+}
+
+static void print_version() {
+    std::cout << "mkcdi v1.0 — Dreamcast CDI builder\n"
+              << "Embedded libisofs 1.5.7, win-iconv\n"
+              << "https://github.com/Conkwer/cditools\n";
 }
 
 // Simple config file parser: reads KEY=VALUE lines
@@ -90,7 +103,7 @@ static void load_config(const std::string& conf_path, AppConfig& cfg) {
         if (value.size() >= 2 && value.front() == '\'' && value.back() == '\'')
             value = value.substr(1, value.size() - 2);
 
-        if (key == "ROMNAME") cfg.romname = value;
+        if (key == "ROMNAME" || key == "VOLUME_ID") cfg.volume_id = value;
         else if (key == "LBA") cfg.lba = std::stoul(value);
         else if (key == "BINARY") cfg.binary = value;
         else if (key == "DATA_DIR") cfg.data_dir = value;
@@ -136,43 +149,121 @@ static AppConfig parse_args(int argc, char* argv[]) {
     load_config(conf_path, cfg);
 
     // Parse CLI args (override config)
+    bool explicit_data_dir = false;
+    bool explicit_volume_id = false;
+    std::string positional;  // single positional arg = drag-drop data dir
+
+    auto is_flag = [](const char* arg, const char* longname, const char* shortname) -> bool {
+        return strcmp(arg, longname) == 0 || (shortname && strcmp(arg, shortname) == 0);
+    };
+
     int i = 1;
     while (i < argc) {
-        if (strcmp(argv[i], "--romname") == 0 && i + 1 < argc) {
-            cfg.romname = argv[++i];
-        } else if (strcmp(argv[i], "--lba") == 0 && i + 1 < argc) {
-            cfg.lba = std::stoul(argv[++i]);
-        } else if (strcmp(argv[i], "--binary") == 0 && i + 1 < argc) {
-            cfg.binary = argv[++i];
-        } else if (strcmp(argv[i], "--data-dir") == 0 && i + 1 < argc) {
-            cfg.data_dir = argv[++i];
-        } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
-            cfg.output = argv[++i];
-        } else if (strcmp(argv[i], "--sort") == 0 && i + 1 < argc) {
-            cfg.sort_file = argv[++i];
-        } else if (strcmp(argv[i], "--kos") == 0) {
-            cfg.kos = true;
-        } else if (strcmp(argv[i], "--nohack") == 0) {
-            cfg.nohack = true;
-        } else if (strcmp(argv[i], "--logo") == 0) {
-            cfg.logo = true;
-        } else if (strcmp(argv[i], "--timestamp") == 0) {
-            cfg.timestamp = true;
-        } else if (strcmp(argv[i], "--dummy") == 0) {
-            cfg.dummy = true;
-        } else if (strcmp(argv[i], "--fast") == 0) {
-            cfg.fast_mode = true;
-        } else if (strcmp(argv[i], "--quiet") == 0) {
-            cfg.quiet = true;
-        } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+        // --help / -h
+        if (is_flag(argv[i], "--help", "-h")) {
             print_usage(argv[0]);
             exit(0);
-        } else if (argv[i][0] == '-') {
+        }
+        // --version
+        else if (strcmp(argv[i], "--version") == 0) {
+            print_version();
+            exit(0);
+        }
+        // --volume-id / -V  (and deprecated --romname)
+        else if ((is_flag(argv[i], "--volume-id", "-V") || strcmp(argv[i], "--romname") == 0) && i + 1 < argc) {
+            cfg.volume_id = argv[++i];
+            explicit_volume_id = true;
+            if (strcmp(argv[i-1], "--romname") == 0 && !cfg.quiet)
+                std::cerr << "Note: --romname is deprecated, use -V/--volume-id\n";
+        }
+        // --lba / -l
+        else if (is_flag(argv[i], "--lba", "-l") && i + 1 < argc) {
+            cfg.lba = std::stoul(argv[++i]);
+        }
+        // --binary / -b
+        else if (is_flag(argv[i], "--binary", "-b") && i + 1 < argc) {
+            cfg.binary = argv[++i];
+        }
+        // --data-dir / -d
+        else if (is_flag(argv[i], "--data-dir", "-d") && i + 1 < argc) {
+            cfg.data_dir = argv[++i];
+            explicit_data_dir = true;
+        }
+        // --output / -o
+        else if (is_flag(argv[i], "--output", "-o") && i + 1 < argc) {
+            cfg.output = argv[++i];
+        }
+        // --sort / -s
+        else if (is_flag(argv[i], "--sort", "-s") && i + 1 < argc) {
+            cfg.sort_file = argv[++i];
+        }
+        // --fast / -f
+        else if (is_flag(argv[i], "--fast", "-f")) {
+            cfg.fast_mode = true;
+        }
+        // --timestamp / -t
+        else if (is_flag(argv[i], "--timestamp", "-t")) {
+            cfg.timestamp = true;
+        }
+        // --quiet / -q
+        else if (is_flag(argv[i], "--quiet", "-q")) {
+            cfg.quiet = true;
+        }
+        // mode flags (no short form)
+        else if (strcmp(argv[i], "--kos") == 0) { cfg.kos = true; }
+        else if (strcmp(argv[i], "--nohack") == 0) { cfg.nohack = true; }
+        else if (strcmp(argv[i], "--logo") == 0) { cfg.logo = true; }
+        else if (strcmp(argv[i], "--dummy") == 0) { cfg.dummy = true; }
+        // Positional arg (not starting with -)
+        else if (argv[i][0] != '-') {
+            if (positional.empty()) {
+                positional = argv[i];
+            } else {
+                std::cerr << "Error: unexpected extra argument: " << argv[i] << "\n";
+                print_usage(argv[0]);
+                exit(1);
+            }
+        }
+        else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
             exit(1);
         }
         i++;
+    }
+
+    // Drag-and-drop: single positional arg, no explicit data-dir
+    if (!positional.empty() && !explicit_data_dir) {
+        struct stat st;
+        if (stat(positional.c_str(), &st) != 0 || !S_ISDIR(st.st_mode)) {
+            std::cerr << "Error: '" << positional << "' is not a directory\n";
+            exit(1);
+        }
+        cfg.data_dir = positional;
+        cfg.drag_drop = true;
+
+        // Derive volume-id from dirname if not explicitly given
+        if (!explicit_volume_id) {
+            std::string name = fs::path(positional).filename().string();
+            // Sanitize to valid ISO volume-id chars (uppercase A-Z, 0-9, _), max 32
+            std::string vol;
+            for (char c : name) {
+                if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
+                if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+                    if (vol.size() < 32) vol += c;
+                }
+            }
+            if (!vol.empty()) cfg.volume_id = vol;
+        }
+        // Default output next to input folder
+        if (cfg.output.empty()) {
+            std::string parent = fs::path(positional).parent_path().string();
+            std::string name   = fs::path(positional).filename().string();
+            if (parent.empty()) parent = ".";
+            cfg.output = parent + "/" + name + ".cdi";
+        }
+        // Default: fast mode, LBA 11702
+        if (!cfg.fast_mode) cfg.fast_mode = true;
     }
 
     return cfg;
@@ -420,8 +511,8 @@ int main(int argc, char* argv[]) {
     AppConfig cfg = parse_args(argc, argv);
 
     // Validate
-    if (cfg.romname.empty()) {
-        std::cerr << "Error: --romname is required\n";
+    if (cfg.volume_id.empty()) {
+        std::cerr << "Error: --volume-id is required\n";
         print_usage(argv[0]);
         return 1;
     }
@@ -435,14 +526,14 @@ int main(int argc, char* argv[]) {
     }
 
     if (cfg.output.empty()) {
-        cfg.output = cfg.romname + ".cdi";
+        cfg.output = cfg.volume_id + ".cdi";
     }
 
     std::string build_ver = build_timestamp();
     if (!cfg.quiet) std::cout << "Build: " << build_ver << "\n";
 
     if (cfg.timestamp) {
-        cfg.output = cfg.romname + "-" + build_ver + ".cdi";
+        cfg.output = cfg.volume_id + "-" + build_ver + ".cdi";
     }
 
     // ============================================================
@@ -544,7 +635,7 @@ int main(int argc, char* argv[]) {
         if (!cfg.quiet) std::cout << "Creating ISO (LBA=" << cfg.lba << ")...\n";
 
         if (!create_dreamcast_iso(cfg.data_dir, iso_file, cfg.lba,
-                                  cfg.romname, cfg.sort_file, cfg.quiet)) {
+                                  cfg.volume_id, cfg.sort_file, cfg.quiet)) {
             std::cerr << "Error: ISO creation failed\n";
             return 1;
         }
@@ -557,9 +648,9 @@ int main(int argc, char* argv[]) {
         if (cfg.fast_mode) {
             if (!cfg.quiet) std::cout << "  cdibuilder -I " << iso_file << " -o "
                                       << cfg.output << " -l " << cfg.lba
-                                      << " -t audio -V '" << cfg.romname << "' (fast)\n";
+                                      << " -t audio -V '" << cfg.volume_id << "' (fast)\n";
             cdibuilder_lib::build_from_iso(iso_file, cfg.output, cfg.lba,
-                                           cfg.romname.c_str(), false);
+                                           cfg.volume_id.c_str(), false);
         } else if (cfg.lba == 11702) {
             // Use cdi4dc for proper ECC/EDC
             std::string cdi4dc_path = cfg.script_dir + "/cdi4dc";
@@ -579,14 +670,14 @@ int main(int argc, char* argv[]) {
                 // cdi4dc not found, fall back to cdibuilder
                 if (!cfg.quiet) std::cout << "  cdi4dc not found, using cdibuilder\n";
                 cdibuilder_lib::build_from_iso(iso_file, cfg.output, cfg.lba,
-                                               cfg.romname.c_str(), false);
+                                               cfg.volume_id.c_str(), false);
             }
         } else {
             if (!cfg.quiet)
                 std::cout << "Note: LBA " << cfg.lba
                           << " — cdi4dc only handles LBA 11702. Using cdibuilder.\n";
             cdibuilder_lib::build_from_iso(iso_file, cfg.output, cfg.lba,
-                                           cfg.romname.c_str(), false);
+                                           cfg.volume_id.c_str(), false);
         }
     }
 
@@ -594,5 +685,19 @@ int main(int argc, char* argv[]) {
     fs::remove(iso_file);
 
     std::cout << "\nDone: " << cfg.output << "\n";
+
+#ifdef _WIN32
+    // On drag-and-drop, the console window auto-closes. Pause so user can
+    // read the result. Only pause when we own the console (not launched
+    // from an existing cmd.exe). --quiet suppresses this.
+    if (cfg.drag_drop && !cfg.quiet) {
+        DWORD procs = 0;
+        if (GetConsoleProcessList(&procs, 1) <= 1) {
+            std::cout << "\nPress any key to exit...\n";
+            system("pause > nul");
+        }
+    }
+#endif
+
     return 0;
 }
