@@ -4,6 +4,7 @@
 #include "binhack32_lib.hpp"
 #include "logoinsert_lib.hpp"
 #include "cdibuilder_lib.hpp"
+#include "libisofs_wrapper.hpp"
 #include "scramble.h"
 #include "elf_parser.hpp"
 #include "elf.h"
@@ -542,51 +543,9 @@ int main(int argc, char* argv[]) {
     {
         if (!cfg.quiet) std::cout << "Creating ISO (LBA=" << cfg.lba << ")...\n";
 
-        std::string sort_arg;
-        if (!cfg.sort_file.empty() && file_exists(cfg.sort_file)) {
-            sort_arg = "-sort \"" + cfg.sort_file + "\" ";
-        }
-
-        std::string dummy_arg;
-        if (file_exists(cfg.data_dir + "/0.0")) {
-            dummy_arg = "-hide 0.0 -hide-joliet 0.0 ";
-        }
-
-        std::string exc_arg;
-        if (file_exists(cfg.data_dir + "/Desktop.ini"))
-            exc_arg += "-m Desktop.ini ";
-        if (file_exists(cfg.data_dir + "/Thumbs.db"))
-            exc_arg += "-m Thumbs.db ";
-
-        std::string hide_arg;
-        if (file_exists(cfg.data_dir + "/autorun.inf"))
-            hide_arg = "-hidden autorun.inf ";
-
-        std::string ip_path = cfg.data_dir + "/IP.BIN";
-
-        char cmd[8192];
-        snprintf(cmd, sizeof(cmd),
-            "mkisofs -C 0,%u -V \"%s\" %s%s%s%s-G \"%s\" -exclude IP.BIN -l -J -r -o \"%s\" \"%s\"",
-            cfg.lba,
-            cfg.romname.c_str(),
-            sort_arg.c_str(),
-            dummy_arg.c_str(),
-            exc_arg.c_str(),
-            hide_arg.c_str(),
-            ip_path.c_str(),
-            iso_file.c_str(),
-            cfg.data_dir.c_str());
-
-        if (!cfg.quiet) {
-            std::string short_cmd = "mkisofs -C 0," + std::to_string(cfg.lba)
-                + " -V '" + cfg.romname + "' -G data/IP.BIN -exclude IP.BIN -l -J -r -o "
-                + iso_file + " " + cfg.data_dir;
-            std::cout << "  " << short_cmd << "\n";
-        }
-
-        int ret = system(cmd);
-        if (ret != 0) {
-            std::cerr << "Error: mkisofs failed with code " << ret << "\n";
+        if (!create_dreamcast_iso(cfg.data_dir, iso_file, cfg.lba,
+                                  cfg.romname, cfg.sort_file, cfg.quiet)) {
+            std::cerr << "Error: ISO creation failed\n";
             return 1;
         }
     }
