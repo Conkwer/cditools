@@ -3,6 +3,7 @@
 
 #ifdef _WIN32
 
+#define _FILE_OFFSET_BITS 64
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 #include <sys/types.h>

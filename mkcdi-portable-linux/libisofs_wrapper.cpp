@@ -100,7 +100,12 @@ bool create_dreamcast_iso(const std::string& data_dir,
         return false;
     }
 
+    // Joliet: enable on Linux only. Disabled on MinGW cross-builds because
+    // off_t is 32-bit and joliet.c has pervasive off_t arithmetic that
+    // overflows. Rock Ridge provides Unicode filenames for all platforms.
+#ifndef _WIN32
     iso_write_opts_set_joliet(opts, 1);
+#endif
     iso_write_opts_set_rockridge(opts, 1);
     iso_write_opts_set_allow_dir_id_ext(opts, 1);
 

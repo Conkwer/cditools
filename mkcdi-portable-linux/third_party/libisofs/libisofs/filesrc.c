@@ -106,9 +106,9 @@ int iso_file_src_create(Ecma119Image *img, IsoFile *file, IsoFileSrc **src)
          * Block and size of each section will be filled later.
          */
         off_t section_size = iso_stream_get_size(file->stream);
-        if (section_size > (off_t) MAX_ISO_FILE_SECTION_SIZE) {
-            fsrc->nsections = DIV_UP(section_size - (off_t) MAX_ISO_FILE_SECTION_SIZE,
-                                     (off_t)ISO_EXTENT_SIZE) + 1;
+        if ((uint64_t)section_size > (uint64_t)MAX_ISO_FILE_SECTION_SIZE) {
+            fsrc->nsections = (int)DIV_UP((uint64_t)section_size - (uint64_t)MAX_ISO_FILE_SECTION_SIZE,
+                                          (uint64_t)ISO_EXTENT_SIZE) + 1;
         } else {
             fsrc->nsections = 1;
         }

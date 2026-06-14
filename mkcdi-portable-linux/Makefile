@@ -9,14 +9,14 @@ WIN_CXX = x86_64-w64-mingw32-g++
 WIN_CC = x86_64-w64-mingw32-gcc
 WIN_EXTRA = third_party/libisofs/winpatch/iconv.c
 
-WIN_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
-WIN_CFLAGS = -O2 -Wall -Wno-overflow -DHAVE_CONFIG_H -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
+WIN_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -D_FILE_OFFSET_BITS=64 -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
+WIN_CFLAGS = -O2 -Wall -Wno-overflow -DHAVE_CONFIG_H -D_FILE_OFFSET_BITS=64 -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
 WIN_LDLIBS = -lpthread
 
 WIN32_CXX = i686-w64-mingw32-g++
 WIN32_CC = i686-w64-mingw32-gcc
-WIN32_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
-WIN32_CFLAGS = -O2 -Wall -Wno-overflow -DHAVE_CONFIG_H -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
+WIN32_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -D_FILE_OFFSET_BITS=64 -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
+WIN32_CFLAGS = -O2 -Wall -Wno-overflow -DHAVE_CONFIG_H -D_FILE_OFFSET_BITS=64 -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
 WIN32_LDLIBS = -lpthread
 WIN32_TARGET = mkcdi-x86.exe
 

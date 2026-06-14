@@ -175,7 +175,7 @@ int create_node(Ecma119Image *t, IsoNode *iso, JolietNode **node)
         IsoFile *file = (IsoFile*) iso;
 
         size = iso_stream_get_size(file->stream);
-        if (size > (off_t)MAX_ISO_FILE_SECTION_SIZE &&
+        if ((uint64_t)size > (uint64_t)MAX_ISO_FILE_SECTION_SIZE &&
             t->opts->iso_level != 3) {
             char *ipath = iso_tree_get_node_path(iso);
             free(joliet);
