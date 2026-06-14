@@ -281,6 +281,18 @@ static std::string build_timestamp() {
     return buf;
 }
 
+#ifdef _WIN32
+static std::string display_path(const std::string& s) {
+    // Normalize mixed slashes for display. Windows understands both,
+    // but A:\/foo looks weird. Replace all forward slashes with backslashes.
+    std::string r = s;
+    for (char& c : r) if (c == '/') c = '\\';
+    return r;
+}
+#else
+static std::string display_path(const std::string& s) { return s; }
+#endif
+
 static bool file_exists(const std::string& path) {
     struct stat st;
     return stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
@@ -646,8 +658,9 @@ int main(int argc, char* argv[]) {
         if (!cfg.quiet) std::cout << "Converting ISO to CDI...\n";
 
         if (cfg.fast_mode) {
-            if (!cfg.quiet) std::cout << "  cdibuilder -I " << iso_file << " -o "
-                                      << cfg.output << " -l " << cfg.lba
+            if (!cfg.quiet) std::cout << "  cdibuilder -I " << display_path(iso_file)
+                                      << " -o " << display_path(cfg.output)
+                                      << " -l " << cfg.lba
                                       << " -t audio -V '" << cfg.volume_id << "' (fast)\n";
             cdibuilder_lib::build_from_iso(iso_file, cfg.output, cfg.lba,
                                            cfg.volume_id.c_str(), false);
@@ -655,8 +668,9 @@ int main(int argc, char* argv[]) {
             // Use cdi4dc for proper ECC/EDC
             std::string cdi4dc_path = cfg.script_dir + "/cdi4dc";
             if (file_exists(cdi4dc_path)) {
-                if (!cfg.quiet) std::cout << "  cdi4dc " << iso_file << " "
-                                          << cfg.output << " (audio/data, LBA 11702)\n";
+                if (!cfg.quiet) std::cout << "  cdi4dc " << display_path(iso_file) << " "
+                                          << display_path(cfg.output)
+                                          << " (audio/data, LBA 11702)\n";
                 char cmd[4096];
                 snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\" \"%s\"",
                          cdi4dc_path.c_str(), iso_file.c_str(), cfg.output.c_str());
@@ -684,7 +698,7 @@ int main(int argc, char* argv[]) {
     // Step 9: Cleanup
     fs::remove(iso_file);
 
-    std::cout << "\nDone: " << cfg.output << "\n";
+    std::cout << "\nDone: " << display_path(cfg.output) << "\n";
 
 #ifdef _WIN32
     // On drag-and-drop, the console window auto-closes. Pause so user can

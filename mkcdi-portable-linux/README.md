@@ -10,32 +10,39 @@ beyond standard system libraries.
 make          # Linux x86-64 (static, 3.3 MB)
 make arm64    # Linux aarch64 (static, 3.2 MB)
 make win      # Windows x64 cross-compile (static, 3.6 MB)
+make win32    # Windows x86 cross-compile (static, 3.4 MB)
 
-./mkcdi --romname "Game" --data-dir ./data --output game.cdi
+./mkcdi -V "Game" -d ./data
 ```
 
-Pre-built static binaries included for all three platforms.
-External deps: none (cdi4dc optional for LBA 11702 with ECC — `--fast` uses
+Drag-and-drop: `./mkcdi /path/to/game` builds with smart defaults
+(volume-id from dirname, fast mode, output next to input).
+
+Pre-built static binaries included for all four platforms.
+External deps: none (cdi4dc optional for LBA 11702 with ECC — `-f` uses
 built-in cdibuilder).
 
 ## Usage
 
 ```
-mkcdi [options]
+mkcdi [options] [directory]
+mkcdi directory     (drag-and-drop quick build)
 
-  --romname NAME    Game name / volume label (required)
-  --lba LBA         Session 2 LBA (default: 11702, 45000 for data/data)
-  --binary BIN      Boot binary filename (default: 1ST_READ.BIN)
-  --data-dir DIR    Directory with game data (default: ./data)
-  --output CDI      Output CDI filename (default: NAME.cdi)
-  --sort FILE       Sort file for mkisofs (optional)
-  --kos             KallistiOS mode: skip hack4/binhack, use kos.bin IP.BIN
-  --nohack          Skip hack4/binhack32/bincon (pre-patched binaries)
-  --logo            Inject logo.mr into IP.BIN (Katana; WinCE auto-injects wince.mr)
-  --dummy           Pad disc to optimal capacity (LBA 11702 only)
-  --fast            Fast mode: use cdibuilder (no ECC)
-  --timestamp       Append build timestamp to output filename
-  --quiet           Suppress info messages
+  -V, --volume-id NAME   ISO Volume Identifier (required)
+  -l, --lba LBA          Session 2 LBA (default: 11702, 45000 data/data)
+  -b, --binary BIN       Boot binary filename (default: 1ST_READ.BIN)
+  -d, --data-dir DIR     Directory with game data (default: ./data)
+  -o, --output CDI       Output CDI filename (default: NAME.cdi)
+  -s, --sort FILE        File sorting order (optional)
+  -f, --fast             Fast mode: built-in cdibuilder (no ECC)
+  -t, --timestamp        Append build timestamp to output filename
+  -q, --quiet            Suppress info messages
+  -h, --help             Show this help
+  --version              Show version info
+  --kos                  KallistiOS mode: skip hack4/binhack
+  --nohack               Skip hack4/binhack32/bincon (pre-patched)
+  --logo                 Inject logo.mr into IP.BIN (Katana)
+  --dummy                Pad disc to optimal capacity (LBA 11702 only)
 ```
 
 ## Pipeline
