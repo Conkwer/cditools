@@ -39,7 +39,9 @@ unsigned int searchHackOffset( istream& boot, unsigned int bootsize ) {
 	boot.seekg( 0, ios::beg );
 	boot.read ( bootbuf, bootsize);
 
-	// Searching the CD001 signature in memory
+	// Searching the CD001 signature in memory.
+	// CD001 belongs at offset 0x8001 in a real ISO (sector 16).
+	// Reject matches beyond 128 KB — those are false positives in game data.
 	hackoffset = -1;
     for ( int i = 0 ; i < ( bootsize - BOOT_HACK_SIGNATURE_SIZE ) ; i++ ) {
 		// Copying the memory zone that we want to compare
@@ -47,7 +49,9 @@ unsigned int searchHackOffset( istream& boot, unsigned int bootsize ) {
 
 		// Comparing the buffer with the "CD001" reference
 		if ( memcmp( tmp, bootsign_ref, BOOT_HACK_SIGNATURE_SIZE ) == 0 ) {
-			hackoffset = (unsigned int) i - 8;
+			if (i <= 131072) {  // CD001 must be within first 128 KB
+				hackoffset = (unsigned int) i - 8;
+			}
 			break;
 		}
     }

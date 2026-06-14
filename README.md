@@ -125,8 +125,47 @@ Note: cdi7z is independent implementation based on No$cash CDI specs,
 cdirip 0.6.4 (DeXT/Lawrence Williams), and the 7-Zip format SDK. No code
 from Iso7z or third-party closed-source CDI tool is used.
 
+## mkcdi-portable-linux — All-in-One CDI Builder
+
+Single C++17 binary replacing the mkcdi.sh bash pipeline. Handles KOS (ELF),
+Katana, and WinCE (bincon) builds. Merges hack4, binhack32, bincon, elf2bin,
+logoinsert, doomer, and cdibuilder into one executable.
+
+```bash
+cd mkcdi-portable-linux
+make          # Linux x86-64
+make static   # Linux x86-64 (static, no deps)
+make arm64    # Linux aarch64 (static)
+make win      # Windows x64 cross-compile (static)
+
+./mkcdi --romname "Game" --data-dir ./data --output game.cdi
+```
+
+Pre-built static binaries included: `mkcdi` (x86-64), `mkcdi-arm64` (aarch64),
+`mkcdi.exe` (Windows x64). External deps: `mkisofs` (genisoimage), `cdi4dc`
+(LBA 11702 with ECC, optional — `--fast` uses built-in cdibuilder).
+
+## make45k_linux — Data/Data Selfboot Builder (LBA 45000)
+
+Experimental data/data CDI builder for games requiring LBA 45000 layout.
+Uses two-session build: Session 1 from `data1/`, Session 2 from `data/`,
+with automatic LBA calculation and padding via `fill`.
+
+```bash
+cd make45k_linux
+python3 mkcustom-lba.py
+```
+
+Requires: `mkisofs` (genisoimage), `p7zip`. Creates `data1/` and `data/`
+directories — put Session 1 content in `data1/`, Session 2 (game data) in
+`data/`. Output is named `{romname}-{timestamp}.cdi`.
+
+Internal tools (`system/`): `iso2raw`, `fill`, `redump2cdi`, `hack4`,
+`binhack32`, `scramble`, `bincon.py`, `cdibuilder`. Hack4 source updated
+from mkcdi-portable-linux (corrected default patch behavior).
+
 ## Limitations
 
-- `cdibuilder` audio/data mode only (data/data coming)
+- `cdibuilder` and `mkcdi-portable-linux` audio/data mode only (data/data via make45k)
 - No ECC/EDC generation (emulators and ODEs don't require it)
 - No CDDA audio track support
