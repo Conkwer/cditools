@@ -3,7 +3,10 @@
 
 #ifdef _WIN32
 
-#define _FILE_OFFSET_BITS 64
+/* NOTE: _FILE_OFFSET_BITS=64 must be defined on the compiler command line
+   (-D_FILE_OFFSET_BITS=64), NOT here. Defining it in config.h means some
+   translation units see it after <sys/types.h> and get 32-bit off_t while
+   others get 64-bit — struct layout mismatch → crashes in Joliet writer. */
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 #include <sys/types.h>
