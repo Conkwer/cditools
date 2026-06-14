@@ -13,6 +13,13 @@ WIN_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -I. -Ithird_party/lib
 WIN_CFLAGS = -O2 -Wall -Wno-overflow -DHAVE_CONFIG_H -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
 WIN_LDLIBS = -lpthread
 
+WIN32_CXX = i686-w64-mingw32-g++
+WIN32_CC = i686-w64-mingw32-gcc
+WIN32_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
+WIN32_CFLAGS = -O2 -Wall -Wno-overflow -DHAVE_CONFIG_H -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs -Ithird_party/libisofs/winpatch
+WIN32_LDLIBS = -lpthread
+WIN32_TARGET = mkcdi-x86.exe
+
 ARM64_CXX = aarch64-linux-gnu-g++
 ARM64_CC = aarch64-linux-gnu-gcc
 ARM64_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static -I. -Ithird_party/libisofs -Ithird_party/libisofs/libisofs
@@ -81,7 +88,7 @@ TARGET = mkcdi
 WIN_TARGET = mkcdi.exe
 ARM64_TARGET = mkcdi-arm64
 
-.PHONY: all clean assets win arm64 static
+.PHONY: all clean assets win win32 arm64 static
 
 all: assets $(TARGET)
 
@@ -89,6 +96,8 @@ static: CXXFLAGS += -static
 static: assets $(TARGET)
 
 win: assets $(WIN_TARGET)
+
+win32: assets $(WIN32_TARGET)
 
 arm64: assets $(ARM64_TARGET)
 
@@ -104,7 +113,17 @@ $(ARM64_TARGET): $(ARM64_OBJS) $(ARM64_LIBISOFS_OBJS)
 $(WIN_TARGET): $(WIN_OBJS) $(WIN_LIBISOFS_OBJS) mkcdi_res.o $(WIN_EXTRA:.c=_win.o)
 	$(WIN_CXX) $(WIN_CXXFLAGS) -o $@ $^ $(WIN_LDLIBS)
 
+WIN32_OBJS = $(SRCS:.cpp=_win32.o)
+WIN32_LIBISOFS_OBJS = $(LIBISOFS_SRCS:.c=_win32.o)
+
+$(WIN32_TARGET): $(WIN32_OBJS) $(WIN32_LIBISOFS_OBJS) mkcdi_res32.o $(WIN_EXTRA:.c=_win32.o)
+	$(WIN32_CXX) $(WIN32_CXXFLAGS) -o $@ $^ $(WIN32_LDLIBS)
+
 mkcdi_res.o: mkcdi.rc icon.ico
+	x86_64-w64-mingw32-windres --use-temp-file mkcdi.rc mkcdi_res.o
+
+mkcdi_res32.o: mkcdi.rc icon.ico
+	i686-w64-mingw32-windres --use-temp-file mkcdi.rc mkcdi_res32.o
 	x86_64-w64-mingw32-windres --use-temp-file mkcdi.rc mkcdi_res.o
 
 %.o: %.cpp
@@ -125,8 +144,14 @@ mkcdi_res.o: mkcdi.rc icon.ico
 %_arm64.o: %.c
 	$(ARM64_CC) $(ARM64_CFLAGS) -c -o $@ $<
 
+%_win32.o: %.cpp
+	$(WIN32_CXX) $(WIN32_CXXFLAGS) -c -o $@ $<
+
+%_win32.o: %.c
+	$(WIN32_CC) $(WIN32_CFLAGS) -c -o $@ $<
+
 clean:
-	rm -f $(OBJS) $(LIBISOFS_OBJS) $(WIN_OBJS) $(WIN_LIBISOFS_OBJS) $(ARM64_OBJS) $(ARM64_LIBISOFS_OBJS) mkcdi_res.o $(TARGET) $(WIN_TARGET) $(ARM64_TARGET)
+	rm -f $(OBJS) $(LIBISOFS_OBJS) $(WIN_OBJS) $(WIN_LIBISOFS_OBJS) $(ARM64_OBJS) $(ARM64_LIBISOFS_OBJS) $(WIN32_OBJS) $(WIN32_LIBISOFS_OBJS) mkcdi_res.o mkcdi_res32.o $(TARGET) $(WIN_TARGET) $(WIN32_TARGET) $(ARM64_TARGET)
 	find third_party -name "*.o" -delete
 
 distclean: clean
