@@ -44,7 +44,6 @@ struct AppConfig {
     bool logo = false;
     bool timestamp = false;
     bool kos = false;
-    bool drag_drop = false;  // set when invoked with single positional arg
     std::string script_dir;
 };
 
@@ -240,7 +239,6 @@ static AppConfig parse_args(int argc, char* argv[]) {
             exit(1);
         }
         cfg.data_dir = positional;
-        cfg.drag_drop = true;
 
         // Derive volume-id from dirname if not explicitly given
         if (!explicit_volume_id) {
@@ -690,10 +688,11 @@ int main(int argc, char* argv[]) {
     std::cout << "\nDone: " << cfg.output << "\n";
 
 #ifdef _WIN32
-    // On drag-and-drop, the console window auto-closes. Pause so user can
-    // read the result. Only pause when we own the console (not launched
-    // from an existing cmd.exe). --quiet suppresses this.
-    if (cfg.drag_drop && !cfg.quiet) {
+    // When launched via double-click or drag-and-drop, Windows creates a
+    // transient console that vanishes on exit. Pause so the user can read
+    // the output. Only pause when we own the console (GetConsoleProcessList
+    // returns 1 = no parent cmd.exe). --quiet suppresses this.
+    if (!cfg.quiet) {
         DWORD procs = 0;
         if (GetConsoleProcessList(&procs, 1) <= 1) {
             std::cout << "\nPress any key to exit...\n";
