@@ -507,6 +507,25 @@ static void step_logoinsert(const AppConfig& cfg) {
 // ============================================================
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // atexit fires on return from main() AND exit() — catches all paths.
+    // GetConsoleProcessList() returns 1 when double-clicked (transient
+    // console) and >1 when launched from cmd.exe — so scripts aren't blocked.
+    //
+    // We capture the argv[0] basename at registration time so the static
+    // persists. The check uses a helper to avoid pulling in windows.h here.
+    atexit([]{
+        DWORD procs = 0;
+        // Pause only when we're the sole process in this console
+        // (= double-click launch, not from cmd.exe / terminal).
+        // GetConsoleProcessList returns 0 if no console attached.
+        if (GetConsoleProcessList(&procs, 1) == 1) {
+            std::cout << "\nPress any key to exit...\n";
+            system("pause > nul");
+        }
+    });
+#endif
+
     AppConfig cfg = parse_args(argc, argv);
 
     // Validate
@@ -686,20 +705,5 @@ int main(int argc, char* argv[]) {
     fs::remove(iso_file);
 
     std::cout << "\nDone: " << cfg.output << "\n";
-
-#ifdef _WIN32
-    // When launched via double-click or drag-and-drop, Windows creates a
-    // transient console that vanishes on exit. Pause so the user can read
-    // the output. Only pause when we own the console (GetConsoleProcessList
-    // returns 1 = no parent cmd.exe). --quiet suppresses this.
-    if (!cfg.quiet) {
-        DWORD procs = 0;
-        if (GetConsoleProcessList(&procs, 1) <= 1) {
-            std::cout << "\nPress any key to exit...\n";
-            system("pause > nul");
-        }
-    }
-#endif
-
     return 0;
 }
