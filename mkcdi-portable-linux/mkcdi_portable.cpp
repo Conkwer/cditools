@@ -255,12 +255,13 @@ static AppConfig parse_args(int argc, char* argv[]) {
             }
             if (!vol.empty()) cfg.volume_id = vol;
         }
-        // Default output next to input folder
+        // Default output next to input folder (.cdi sibling of source dir)
         if (cfg.output.empty()) {
-            std::string parent = fs::path(positional).parent_path().string();
-            std::string name   = fs::path(positional).filename().string();
+            fs::path src(positional);
+            fs::path parent = src.parent_path();
+            std::string name = src.filename().string();
             if (parent.empty()) parent = ".";
-            cfg.output = parent + "/" + name + ".cdi";
+            cfg.output = (parent / (name + ".cdi")).string();
         }
         // Default: fast mode, LBA 11702
         if (!cfg.fast_mode) cfg.fast_mode = true;
@@ -280,18 +281,6 @@ static std::string build_timestamp() {
     strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", tm);
     return buf;
 }
-
-#ifdef _WIN32
-static std::string display_path(const std::string& s) {
-    // Normalize mixed slashes for display. Windows understands both,
-    // but A:\/foo looks weird. Replace all forward slashes with backslashes.
-    std::string r = s;
-    for (char& c : r) if (c == '/') c = '\\';
-    return r;
-}
-#else
-static std::string display_path(const std::string& s) { return s; }
-#endif
 
 static bool file_exists(const std::string& path) {
     struct stat st;
@@ -658,8 +647,8 @@ int main(int argc, char* argv[]) {
         if (!cfg.quiet) std::cout << "Converting ISO to CDI...\n";
 
         if (cfg.fast_mode) {
-            if (!cfg.quiet) std::cout << "  cdibuilder -I " << display_path(iso_file)
-                                      << " -o " << display_path(cfg.output)
+            if (!cfg.quiet) std::cout << "  cdibuilder -I " << iso_file
+                                      << " -o " << cfg.output
                                       << " -l " << cfg.lba
                                       << " -t audio -V '" << cfg.volume_id << "' (fast)\n";
             cdibuilder_lib::build_from_iso(iso_file, cfg.output, cfg.lba,
@@ -668,8 +657,8 @@ int main(int argc, char* argv[]) {
             // Use cdi4dc for proper ECC/EDC
             std::string cdi4dc_path = cfg.script_dir + "/cdi4dc";
             if (file_exists(cdi4dc_path)) {
-                if (!cfg.quiet) std::cout << "  cdi4dc " << display_path(iso_file) << " "
-                                          << display_path(cfg.output)
+                if (!cfg.quiet) std::cout << "  cdi4dc " << iso_file << " "
+                                          << cfg.output
                                           << " (audio/data, LBA 11702)\n";
                 char cmd[4096];
                 snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\" \"%s\"",
@@ -698,7 +687,7 @@ int main(int argc, char* argv[]) {
     // Step 9: Cleanup
     fs::remove(iso_file);
 
-    std::cout << "\nDone: " << display_path(cfg.output) << "\n";
+    std::cout << "\nDone: " << cfg.output << "\n";
 
 #ifdef _WIN32
     // On drag-and-drop, the console window auto-closes. Pause so user can
