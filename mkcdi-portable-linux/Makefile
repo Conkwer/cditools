@@ -4,6 +4,9 @@ CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -Wno-unused-result
 WIN_CXX = x86_64-w64-mingw32-g++
 WIN_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static
 
+ARM64_CXX = aarch64-linux-gnu-g++
+ARM64_CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -static
+
 SRCS = mkcdi_portable.cpp \
        hack4_lib.cpp \
        bincon.cpp \
@@ -17,20 +20,30 @@ SRCS = mkcdi_portable.cpp \
 
 OBJS = $(SRCS:.cpp=.o)
 WIN_OBJS = $(SRCS:.cpp=_win.o)
+ARM64_OBJS = $(SRCS:.cpp=_arm64.o)
 TARGET = mkcdi
 WIN_TARGET = mkcdi.exe
+ARM64_TARGET = mkcdi-arm64
 
-.PHONY: all clean assets win
+.PHONY: all clean assets win arm64 static
 
 all: assets $(TARGET)
 
+static: CXXFLAGS += -static
+static: assets $(TARGET)
+
 win: assets $(WIN_TARGET)
+
+arm64: assets $(ARM64_TARGET)
 
 assets:
 	python3 tools/embed_assets.py
 
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
+
+$(ARM64_TARGET): $(ARM64_OBJS)
+	$(ARM64_CXX) $(ARM64_CXXFLAGS) -o $@ $^
 
 $(WIN_TARGET): $(WIN_OBJS) mkcdi_res.o
 	$(WIN_CXX) $(WIN_CXXFLAGS) -o $@ $^
@@ -44,8 +57,11 @@ mkcdi_res.o: mkcdi.rc icon.ico
 %_win.o: %.cpp
 	$(WIN_CXX) $(WIN_CXXFLAGS) -c -o $@ $<
 
+%_arm64.o: %.cpp
+	$(ARM64_CXX) $(ARM64_CXXFLAGS) -c -o $@ $<
+
 clean:
-	rm -f $(OBJS) $(WIN_OBJS) $(TARGET) $(WIN_TARGET)
+	rm -f $(OBJS) $(WIN_OBJS) $(ARM64_OBJS) $(TARGET) $(WIN_TARGET) $(ARM64_TARGET) mkcdi_res.o
 
 distclean: clean
 	rm -f embedded_assets.h embedded_assets.cpp
