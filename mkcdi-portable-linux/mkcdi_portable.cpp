@@ -77,7 +77,8 @@ static void print_usage(const char* prog) {
         << "  - Ensure the main executable (e.g., 1ST_READ.BIN) is correctly named.\n"
         << "  - Use --kos flag for KOS-based homebrew.\n"
         << "  - Data+Data mode (LBA 45000) is experimental and may fail.\n"
-        << "  - Backup your files! This tool modifies binaries and bootsectors.\n"
+        << "  - This tool modifies IP.BIN and .BIN files; keep a clean copy\n"
+        << "    of your game files outside the build directory.\n"
         << "  - Compatibility: ~90% (some protected retail discs may fail).\n";
 }
 
