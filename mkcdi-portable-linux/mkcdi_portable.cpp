@@ -70,7 +70,15 @@ static void print_usage(const char* prog) {
         << "  --dummy                Pad disc to optimal capacity (LBA 11702)\n"
         << "\n  --romname NAME         Deprecated alias for --volume-id\n"
         << "\nDrag-and-drop: invoke with a single directory argument for a quick\n"
-        << "build with defaults (--volume-id from dirname, --fast, --lba 11702).\n";
+        << "build with defaults (--volume-id from dirname, --fast, --lba 11702).\n"
+        << "\nTroubleshooting & Usage Tips:\n"
+        << "  - Use verified/unpatched dumps; pre-patched binaries may fail.\n"
+        << "  - Remove IP.BIN to force the tool to use a generic bootloader.\n"
+        << "  - Ensure the main executable (e.g., 1ST_READ.BIN) is correctly named.\n"
+        << "  - Use --kos flag for KOS-based homebrew.\n"
+        << "  - Data+Data mode (LBA 45000) is experimental and may fail.\n"
+        << "  - Backup your files! This tool modifies binaries and bootsectors.\n"
+        << "  - Compatibility: ~90% (some protected retail discs may fail).\n";
 }
 
 static void print_version() {
