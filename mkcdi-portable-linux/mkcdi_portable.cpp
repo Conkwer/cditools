@@ -48,9 +48,10 @@ struct AppConfig {
 };
 
 static void print_usage(const char* prog) {
+    std::string name = fs::path(prog).filename().string();
     std::cout
-        << "Usage: " << prog << " [options] [directory]\n"
-        << "       " << prog << " directory     (drag-and-drop quick build)\n\n"
+        << "Usage: " << name << " [options] [directory]\n"
+        << "       " << name << " directory     (drag-and-drop quick build)\n\n"
         << "Options:\n"
         << "  -V, --volume-id NAME   ISO Volume Identifier (required)\n"
         << "  -l, --lba LBA          Session 2 LBA (default: 11702)\n"
