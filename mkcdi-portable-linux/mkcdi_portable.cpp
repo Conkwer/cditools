@@ -42,6 +42,7 @@ struct AppConfig {
     bool dummy = false;
     bool nohack = false;
     bool logo = false;
+    std::string logo_path;  // user-specified MR logo file
     bool timestamp = false;
     bool kos = false;
     std::string script_dir;
@@ -66,7 +67,7 @@ static void print_usage(const char* prog) {
         << "  --version              Show version info\n"
         << "  --kos                  KallistiOS mode: skip hack4/binhack\n"
         << "  --nohack               Skip hack4/binhack32/bincon (pre-patched)\n"
-        << "  --logo                 Inject logo.mr into IP.BIN (Katana)\n"
+        << "  --logo [FILE.mr]       Inject MR logo into IP.BIN (Katana only)\n"
         << "  --dummy                Pad disc to optimal capacity (LBA 11702)\n"
         << "\n  --romname NAME         Deprecated alias for --volume-id\n"
         << "\nDrag-and-drop: invoke with a single directory argument for a quick\n"
@@ -221,7 +222,10 @@ static AppConfig parse_args(int argc, char* argv[]) {
         // mode flags (no short form)
         else if (strcmp(argv[i], "--kos") == 0) { cfg.kos = true; }
         else if (strcmp(argv[i], "--nohack") == 0) { cfg.nohack = true; }
-        else if (strcmp(argv[i], "--logo") == 0) { cfg.logo = true; }
+        else if (strcmp(argv[i], "--logo") == 0) {
+            cfg.logo = true;
+            if (i + 1 < argc && argv[i+1][0] != '-') cfg.logo_path = argv[++i];
+        }
         else if (strcmp(argv[i], "--dummy") == 0) { cfg.dummy = true; }
         // Positional arg (not starting with -)
         else if (argv[i][0] != '-') {
@@ -489,8 +493,24 @@ static void step_binhack32(const AppConfig& cfg) {
     fs::remove_all(tmpdir);
 }
 
+static std::string find_logo(const AppConfig& cfg) {
+    std::string fname = cfg.logo_path.empty() ? "logo.mr" : cfg.logo_path;
+
+    // 1. Near mkcdi executable
+    std::string near_exe = cfg.script_dir + "/" + fname;
+    if (file_exists(near_exe)) return near_exe;
+
+    // 2. Near output CDI
+    std::string out_dir = fs::path(cfg.output).parent_path().string();
+    if (out_dir.empty()) out_dir = ".";
+    std::string near_out = out_dir + "/" + fname;
+    if (file_exists(near_out)) return near_out;
+
+    return "";  // not found
+}
+
 static void step_logoinsert(const AppConfig& cfg) {
-    // WinCE always gets wince.mr
+    // WinCE always injects embedded wince.mr
     if (cfg.binary == "0WINCEOS.BIN") {
         if (!cfg.quiet) std::cout << "  logoinsert (inject wince.mr)...\n";
         auto ipbin = read_file(cfg.data_dir + "/IP.BIN");
@@ -501,13 +521,19 @@ static void step_logoinsert(const AppConfig& cfg) {
         return;
     }
 
-    // Katana only with --logo
+    // Katana: only if --logo specified
     if (cfg.logo) {
-        if (!cfg.quiet) std::cout << "  logoinsert (inject logo.mr)...\n";
+        std::string found = find_logo(cfg);
+        if (found.empty()) {
+            std::cerr << "Warning: --logo: "
+                      << (cfg.logo_path.empty() ? "logo.mr" : cfg.logo_path)
+                      << " not found (checked near exe and output dir)\n";
+            return;
+        }
+        if (!cfg.quiet) std::cout << "  logoinsert (inject " << fs::path(found).filename().string() << ")...\n";
         auto ipbin = read_file(cfg.data_dir + "/IP.BIN");
-        std::vector<uint8_t> logo(embedded::logo_mr,
-                                   embedded::logo_mr + embedded::logo_mr_size);
-        logoinsert::inject_logo(ipbin, logo);
+        auto logo_data = read_file(found);
+        logoinsert::inject_logo(ipbin, logo_data);
         write_file(cfg.data_dir + "/IP.BIN", ipbin);
     }
 }

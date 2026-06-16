@@ -11,7 +11,6 @@ ASSETS = {
     "wince":        "precon/wince.bin",
     "kos":          "precon/kos.bin",
     "lodoss_5167":  "precon/lodoss-5167.bin",
-    "logo_mr":      "logo.mr",
     "wince_mr":     "wince.mr",
 }
 
