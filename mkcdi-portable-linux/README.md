@@ -77,10 +77,6 @@ external template files needed.
 | `embedded_assets.*` | Auto-generated: IP.BIN templates + MR logos |
 | `tools/embed_assets.py` | Reads binary assets, generates `embedded_assets.*` |
 
-## License
-
-Components carry their original licenses, see Lazyboot-Linux.
-
 ## Credits
 
 | Module | Author | Notes |
@@ -99,3 +95,7 @@ Components carry their original licenses, see Lazyboot-Linux.
 | `doomer` | Conkwer | GPLv3; dummy/padding file creator |
 | `elf2bin` | finixbit, Pawielski, Marcus Comstedt | Merges elf_parser (MIT) + scramble (Public Domain) into one CLI tool |
 | `mkisofs` wrapper | J. Schilling / E. Youngdale | GPL; genisoimage |
+
+## License
+
+Components carry their original licenses (GPLv3)
