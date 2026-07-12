@@ -83,7 +83,7 @@ Components carry their original licenses, see Lazyboot-Linux.
 
 ## Credits
 
-| Tool | Author | Notes |
+| Component | Author | Notes |
 |------|--------|-------|
 | `mkcdi.sh` / lzlite / Lazyboot | Conkwer | GPLv3 |
 | `hack4` (C++/Python) | Conkwer | GPLv3; Inspired by kikuchan's original hack4 (2001); independent implementation |
