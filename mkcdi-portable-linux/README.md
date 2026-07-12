@@ -83,9 +83,9 @@ Components carry their original licenses, see Lazyboot-Linux.
 
 ## Credits
 
-| Component | Author | Notes |
+| Module | Author | Notes |
 |------|--------|-------|
-| `mkcdi.sh` / lzlite / Lazyboot | Conkwer | GPLv3 |
+| `Archestrator logic (mkcdi.sh)` / lzlite / Lazyboot | Conkwer | GPLv3 |
 | `hack4` (C++/Python) | Conkwer | GPLv3; Inspired by kikuchan's original hack4 (2001); independent implementation |
 | `binhack32` | FamilyGuy (v1.0.0.5, 2011-2014), SiZiOUS (optimization) | GPLv3; bugs fixed (tail, false CD001, stream failbit) |
 | `bincon` (C) | unknown | GPLv3; original Windows binary |
