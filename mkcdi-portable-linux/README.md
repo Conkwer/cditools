@@ -98,4 +98,4 @@ external template files needed.
 
 ## License
 
-Components carry their original licenses (GPLv3)
+Components carry their original licenses (~GPLv3)
