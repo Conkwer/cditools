@@ -81,13 +81,25 @@ IP.BIN templates (katana/wince/kos/lodoss) and MR logos are embedded.
 | `third_party/libisofs/` | libisofs 1.5.7 (libburnia, GPLv2+) |
 | `third_party/libisofs/winpatch/` | win-iconv + MinGW compat headers |
 
+## Credits
+
+| Module | Author | Notes |
+|------|--------|-------|
+| `pipeline orchestrator` / lzlite / Lazyboot | Conkwer | GPLv3 |
+| `hack4` (C++/Python) | Conkwer | GPLv3; Inspired by kikuchan's original hack4 (2001); independent implementation |
+| `binhack32` | FamilyGuy (v1.0.0.5, 2011-2014), SiZiOUS (optimization) | GPLv3; bugs fixed (tail, false CD001, stream failbit) |
+| `bincon` (C) | unknown | GPLv3; original Windows binary |
+| `bincon.py` | Conkwer | GPLv3; Python port of the original |
+| `cdi4dc` | [big_fury]SiZiOUS (v0.5b, 2021) | GPLv3 |
+| `cdibuilder` | Conkwer | GPLv3; C++ CDI builder, used with `--fast` or as fallback for non-11702 LBAs |
+| `iso2cdi.py` | Conkwer | GPLv3; based on PSX-Planet script (unknown author) |
+| `scramble` | Marcus Comstedt | Public Domain |
+| `elf_parser` | finixbit (2018), Colton Pawielski (2022-2023) | MIT |
+| `logoinsert` | Conkwer | GPLv3; simple MR logo injector |
+| `doomer` | Conkwer | GPLv3; dummy/padding file creator |
+| `elf2bin` | finixbit, Pawielski, Marcus Comstedt | Merges elf_parser (MIT) + scramble (Public Domain) into one CLI tool |
+| `mkisofs` wrapper | J. Schilling / E. Youngdale | GPL; genisoimage |
+
 ## License
 
-Components carry their original licenses:
-- binhack32: GPLv3 (FamilyGuy)
-- bincon: GPL (dopefish)
-- elf_parser: MIT (finixbit / Colton Pawielski)
-- scramble: Public Domain (Marcus Comstedt)
-- libisofs: GPLv2+ (libburnia project)
-- win-iconv: MIT (Yukihiro Nakadaira)
-- cdibuilder templates: derived from DiscJuggler CDI format
+Components carry their original licenses (~GPLv3)
